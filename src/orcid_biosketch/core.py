@@ -299,10 +299,26 @@ def _works(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if work is None:
             continue
         external_ids = work.get("external-ids", {}).get("external-id", [])
-        identifiers = {
-            item.get("external-id-type", "unknown"): item.get("external-id-value")
-            for item in external_ids if item.get("external-id-value")
-        }
+        identifiers = {}
+        explicit_self_doi = False
+        for item in external_ids:
+            identifier_type = item.get("external-id-type", "unknown")
+            value = item.get("external-id-value")
+            if not value:
+                continue
+            if str(identifier_type).lower() == "doi":
+                relationship = item.get("external-id-relationship")
+                # This DOI drives work identity and citation links. A parent,
+                # funder, or alternate-version DOI identifies a different object.
+                # Older saved records omit the relationship; retain that input
+                # convention, but prefer an explicit self DOI when both exist.
+                if relationship not in (None, "", "self"):
+                    continue
+                if explicit_self_doi and relationship != "self":
+                    continue
+                explicit_self_doi = relationship == "self"
+                identifier_type = "doi"
+            identifiers[identifier_type] = value
         works.append({
             "title": _value((work.get("title") or {}).get("title")),
             "type": work.get("type"),

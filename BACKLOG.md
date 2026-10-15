@@ -1,6 +1,6 @@
 # Backlog
 
-Tracked feature backlog for `orcid-biosketch`. Every item has a stable ID, an
+Tracked feature backlog for `orcid-playground`. Every item has a stable ID, an
 explicit status, and a revision history. Status changes are appended to the
 [Change log](#change-log) at the bottom of this file rather than overwritten, so
 the evolution of the backlog stays auditable in the same way generated outputs
@@ -40,6 +40,8 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | KF-07 | Lab / multi-researcher mode | P2 | planned | — |
 | KF-08 | Change feed and publication Atom feed | P2 | planned | — |
 | KF-09 | Agent-facing surface (MCP + well-known) | P2 | planned | — |
+| KF-10 | Local research network pilot | P1 | in-review | session + subagents |
+| KF-11 | Local working-group workflow | P1 | in-review | session + subagents |
 | INF-01 | Fetch robustness, offline input, iD validation | P0 | done | session |
 | INF-02 | CLI subcommand architecture | P0 | done | session |
 | INF-03 | Verify shapes against a live ORCID record | P1 | in-progress | session |
@@ -223,6 +225,11 @@ One config, N ORCIDs → a team page with deduplicated shared publications and a
 collaboration graph. Institutes and labs are the adoption unit; individuals are
 a one-person market.
 
+The local roster and shared-output experiment is tracked separately in KF-10
+and [epic #6](https://github.com/dhuzard/orcid-playground/issues/6). It does not
+complete the configuration, published team page, or approved synchronization
+requirements of this item.
+
 **Acceptance criteria**
 - [ ] Config accepts a list of ORCID iDs with per-member overrides.
 - [ ] Shared publications deduplicated by DOI across members.
@@ -237,6 +244,9 @@ a one-person market.
 
 The README's pitch is that git commits create an auditable history, but nothing
 reads that history back. Render it, and the repository becomes subscribable.
+
+KF-10 pilots an in-app change feed from manual refreshes. Atom publication and
+git-derived changelogs remain planned here.
 
 **Acceptance criteria**
 - [ ] `CHANGELOG.md` generated from the diff between syncs.
@@ -257,6 +267,73 @@ machine-*readable* to machine-*actionable*.
 - [ ] MCP server with `get_works`, `get_funding`, `find_expertise`.
 - [ ] Well-known JSON-LD document emitted alongside generated outputs.
 - [ ] `llms.txt` summarising the record for agent consumption.
+
+---
+
+## KF-10 — Local research network pilot
+
+- **Priority** P1 · **Status** in-review · **Owner** session + subagents · **Rev** r2
+- **Epic** [#6](https://github.com/dhuzard/orcid-playground/issues/6)
+- **Files** `src/orcid_biosketch/network.py`, `src/orcid_biosketch/network_store.py`,
+  network UI assets, network tests, `docs/network-api.md`, `docs/network-pilot.md`
+
+Test the smallest useful research network in one local workspace: follow public
+ORCID records, read changes, save outputs, and prepare a working-group team pack.
+Manual imports establish a baseline; subsequent manual refreshes surface newly
+observed works without presenting old publications as newly published.
+
+**Acceptance criteria**
+
+- [x] Loopback-only server launches with a persistent local data path.
+- [x] Feed, People, Groups, and Saved support the five-minute pilot script.
+- [x] Explicitly loaded sample data are labelled and work offline.
+- [x] Public ORCID import, manual refresh, follow/unfollow, and saving persist.
+- [x] Initial imports produce no misleading historical feed flood; repeat
+      refreshes do not duplicate unchanged events.
+- [x] Shared DOI works are deduplicated with all researcher associations retained.
+- [x] Group creation and roster editing produce a downloadable team pack.
+- [x] UI and exports identify rosters as unconfirmed and member outputs as
+      distinct from project-attributed outputs.
+- [x] Boundary, persistence, baseline/change, deduplication, and export checks pass.
+- [ ] One real working-group coordinator completes the pilot and records feedback.
+
+Project-output curation and local coordination are tracked in KF-11.
+OAuth, shared accounts, invitations, public hosting, announcements, digests,
+and automatic monitoring remain follow-up scope. Resolve
+ORCID API access terms before introducing unattended monitoring. Pilot runbook:
+[docs/network-pilot.md](docs/network-pilot.md).
+
+---
+
+## KF-11 — Local working-group workflow
+
+- **Priority** P1 · **Status** in-review · **Owner** session + subagents · **Rev** r2
+- **Milestone** [#8](https://github.com/dhuzard/orcid-playground/issues/8), under epic #6
+- **Files** network model/server/UI, network tests, `docs/group-workflow-api.md`, pilot runbook
+
+Help one coordinator prepare a real working-group deliverable from a supplied
+ORCID roster in the existing local workspace. Keep local curation distinct from
+researcher-confirmed membership, credentials, and project attribution.
+
+**Acceptance criteria**
+
+- [x] Paste and preview a bulk ORCID roster; import explicitly with per-record
+      results, cancellation between records, and retries preserving successes.
+- [x] Append people to existing groups without overwriting roster metadata.
+- [x] Persist local roles, expertise, and contributions for current members.
+- [x] Separate suggested member outputs from locally selected project outputs.
+- [x] Track requests with optional owners/deadlines and resolve/reopen actions.
+- [x] Export selected members and publication-date ranges, with project/member
+      output scope applied consistently to bibliography and biosketches.
+- [x] Explain partial-date filtering, excluded undated outputs, and unconfirmed
+      attribution in the exported manifest.
+- [x] Preserve old workspaces and verify request, roster, selection, and export
+      boundaries with persistence and browser checks.
+- [ ] One coordinator prepares a real team report and records time and corrections.
+
+No hosted accounts, OAuth, invitations, notifications, or public membership
+claims in this milestone. Shared access and confirmed membership follow the
+local test. Personal test rosters and workspace data stay outside tracked files.
 
 ---
 
@@ -562,3 +639,10 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-09-01 | KF-02 | Preferred funding details fetched and live-verified at `57000.0 EUR`; work authors and graceful fallbacks retained | in-progress → done |
 | 2026-09-01 | INF-03 | Live `funding-summary` and full funding response shapes verified; remaining uncommon activity shapes stay open | planned → in-progress |
 | 2026-09-01 | INF-04 | Published outputs regenerated at schema 0.2.0 and playful website artifacts added to daily sync | planned → done |
+| 2026-10-15 | KF-10 | Epic #6 opened for a local network pilot; parallel implementation started for model, interface, server, and runbook | — → in-progress |
+| 2026-10-15 | KF-07, KF-08 | Local groups and manual-refresh feed pilot tracked in KF-10; hosted team mode and Atom scope remain planned | scope |
+| 2026-10-15 | — | README polling permission claim corrected; unattended network monitoring requires an agreed ORCID access arrangement | docs |
+| 2026-10-15 | KF-10 | Local pilot implemented; Python/JS tests, live ORCID import, desktop/mobile walkthrough and package contents verified; coordinator feedback pending | in-progress → in-review |
+| 2026-10-15 | KF-11 | Local working-group milestone #8 started for bulk roster, contributions, selected outputs, requests, and scoped team packs; verification pending | — → in-progress |
+| 2026-10-15 | — | Documentation repository links updated to orcid-playground; Python package and command names preserved | docs |
+| 2026-10-15 | KF-11 | 178 Python tests and 9 JS tests passed; browser workflow, bulk failure/retry/cancellation, scoped ZIP and existing workspace preservation verified; coordinator report feedback pending | in-progress → in-review |

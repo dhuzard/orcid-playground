@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#143d37">
+  <link rel="icon" href="data:,">
+  <title>ORCID Network · Research, in good company</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <aside class="sidebar">
+    <a href="#feed" class="brand"><span class="brand-mark" aria-hidden="true">o.</span><span>Research<br><strong>in good company.</strong></span></a>
+    <div class="workspace-label"><span class="status-dot"></span> LOCAL PILOT</div>
+    <nav aria-label="Main navigation" id="navigation"></nav>
+    <div class="sidebar-note"><strong>Built around ORCID</strong><p>Your research circle, shared outputs, and a little less admin.</p><a href="https://orcid.org" target="_blank" rel="noopener noreferrer">Visit ORCID ↗</a></div>
+    <div class="local-note">One local workspace.<br>No accounts or public profiles.</div>
+  </aside>
+  <div class="shell">
+    <header class="topbar"><span>THE RESEARCH COMMONS <span class="muted">/ PILOT</span></span><button id="demo" class="button quiet">Explore sample data</button></header>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    <main id="main" tabindex="-1">
+      <section class="page-heading"><div><div class="eyebrow" id="eyebrow">YOUR RESEARCH CIRCLE</div><h1 id="title">The latest, together.</h1><p id="subtitle">A quieter way to keep up with the people behind the research.</p></div><span class="edition">EARLY ACCESS<br><b>01 / LOCAL</b></span></section>
+      <div id="demo-banner" class="demo-banner" hidden>Sample workspace: illustrative people and updates are labeled “Demo.” Real imports stay separate.</div>
+      <div id="summary" class="summary"></div>
+      <section id="view" aria-label="Workspace content"><p class="empty">Loading your workspace…</p></section>
+    </main>
+    <footer>Powered by public ORCID records. An independent pilot; not an official ORCID service.<br>Researcher information is imported, not identity-verified. Group membership is locally curated and unconfirmed.</footer>
+  </div>
+</body>
+</html>

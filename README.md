@@ -1,4 +1,7 @@
-# ORCID Biosketch
+# ORCID Playground
+
+Tools for reusing public ORCID records in biosketches and a local research network.
+The Python package and CLI names remain `orcid_biosketch` and `orcid-biosketch`.
 
 Generate a researcher-controlled, provenance-aware biosketch from a public ORCID record. The tool creates stable JSON, Schema.org JSON-LD and Markdown outputs that can be consumed by personal websites, institutional profiles and research agents.
 
@@ -26,6 +29,36 @@ By default the tool also batches selected work put-codes through ORCID's bulk
 works endpoint so citation exports include contributors, and fetches preferred
 funding entries so amounts and currencies are preserved. Pass `--summary-only`
 to skip those detail requests when a faster summary is sufficient.
+
+## Local research network pilot
+
+An early pilot adds **Feed, People, Groups, and Saved** to the biosketch tools.
+Follow public ORCID records, save outputs, curate a working-group roster, and
+download a team pack. Implementation and review are tracked in
+[epic #6](https://github.com/dhuzard/orcid-playground/issues/6).
+The local working-group milestone is ready for coordinator testing in
+[issue #8](https://github.com/dhuzard/orcid-playground/issues/8): bulk roster
+import, local roles and contributions, selected project outputs, collaboration
+requests, and team packs scoped by members and publication dates.
+
+```bash
+python -m pip install -e .
+python -m orcid_biosketch.network --port 8877 --data .local/network.sqlite3
+```
+
+Open <http://127.0.0.1:8877>. Load the labelled sample data from the UI for an
+offline trial, or import a public ORCID record. Imports and refreshes are manual;
+the first import establishes a baseline without flooding the feed with old
+papers. Later refreshes report newly observed outputs separately from their
+publication dates. State persists in the chosen local SQLite database.
+The `orcid-network` command is an alias for the module command above.
+
+This pilot is a single local workspace. It has no OAuth sign-in, shared accounts,
+invitations, or automatic monitoring. Group rosters are locally curated and do
+not establish confirmed membership. Project selections and member details record
+local decisions, while public-record outputs remain attributable to their
+sources. Exports describe their scope and do not establish confirmed project
+attribution. See the [five-minute group test and pilot limits](docs/network-pilot.md).
 
 ## Commands
 
@@ -98,16 +131,21 @@ family trees reconstructed from education entries (FUN-09).
 
 The included GitHub Actions workflow refreshes the generated files daily and commits only when the ORCID-derived output changes. The generated timestamp is derived from ORCID's record modification time, preventing meaningless daily commits. It can also be run manually from **Actions → Synchronize ORCID biosketch → Run workflow**.
 
-Git commits create an auditable history. ORCID webhooks are not used because they require premium ORCID membership; daily polling is the free, practical synchronization mechanism.
+Git commits create an auditable history. The existing scheduled workflow is
+separate from the local network pilot, which only refreshes on request. ORCID's
+[Public API terms](https://info.orcid.org/public-client-terms-of-service/)
+prohibit continuous polling and restrict commercial use. The workflow's schedule
+does not establish permission for unattended monitoring; the appropriate access
+arrangement must be resolved before expanding it into a research network.
 
 ## Embed in a website
 
 Load the web component and point it to any published `biosketch.json`:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/dhuzard/orcid-biosketch@main/web/orcid-biosketch.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/dhuzard/orcid-playground@main/web/orcid-biosketch.js"></script>
 <orcid-biosketch
-  src="https://raw.githubusercontent.com/dhuzard/orcid-biosketch/main/generated/biosketch.json"
+  src="https://raw.githubusercontent.com/dhuzard/orcid-playground/main/generated/biosketch.json"
   bio="true"
   works="all"
   search="true"
