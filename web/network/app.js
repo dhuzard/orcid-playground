@@ -169,9 +169,59 @@ function renderFeed(view) {
   results();
 }
 
+function personGroupPicker(person) {
+  const panelId = `person-groups-${person.id}`;
+  const triggerId = `person-groups-trigger-${person.id}`;
+  const panel = el('div', { class: 'person-groups-panel', id: panelId, hidden: true });
+  const trigger = button('+', () => {
+    panel.hidden = !panel.hidden;
+    trigger.setAttribute('aria-expanded', String(!panel.hidden));
+  }, 'quiet small person-groups-trigger', {
+    id: triggerId, 'aria-label': `Add ${person.name} to a group`,
+    title: 'Add to a group', 'aria-expanded': 'false', 'aria-controls': panelId,
+  });
+  panel.append(el('p', { class: 'person-groups-heading' }, 'Add to an existing group'));
+  if (state.groups.length) {
+    for (const group of state.groups) {
+      const included = group.member_ids.includes(person.id);
+      panel.append(el('div', { class: 'person-group-option' },
+        el('span', {}, group.name),
+        included ? el('span', { class: 'person-group-added' }, '✓ Added') :
+          button('Add', async () => {
+            const current = state.groups.find(item => item.id === group.id);
+            if (!current || busy) return;
+            if (await mutate('/api/groups/update', {
+              id: current.id, name: current.name, description: current.description,
+              member_ids: [...new Set([...current.member_ids, person.id])],
+            }, `${person.name} added to ${current.name}.`)) {
+              render();
+              const nextTrigger = document.getElementById(triggerId);
+              if (nextTrigger) {
+                nextTrigger.click();
+                nextTrigger.focus();
+              }
+            }
+          }, 'quiet small', { 'aria-label': `Add ${person.name} to ${group.name}` })));
+    }
+  } else {
+    panel.append(el('p', { class: 'helper' }, 'No groups yet. Create one to start your roster.'),
+      button('Create a group →', () => { editorGroup = null; navigate('groups'); }, 'quiet small'));
+  }
+  const picker = el('div', { class: 'person-groups', onkeydown: event => {
+    if (event.key === 'Escape' && !panel.hidden) {
+      event.preventDefault();
+      panel.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    }
+  } }, trigger, panel);
+  return picker;
+}
+
 function personCard(person) {
   return el('article', { class: 'person-card' },
-    el('div', { class: 'person-head' }, avatar(person, true), el('div', {}, el('h3', {}, person.name), el('p', {}, person.affiliation || 'Affiliation not provided'))),
+    el('div', { class: 'person-head' }, avatar(person, true), el('div', { class: 'person-heading-text' }, el('h3', {}, person.name), el('p', {}, person.affiliation || 'Affiliation not provided'))),
+    personGroupPicker(person),
     tag(person.demo ? 'Demo' : 'Imported · not connected', person.demo),
     person.headline && el('p', {}, person.headline),
     el('div', { class: 'keywords' }, person.keywords.slice(0, 5).map(word => tag(word))),
