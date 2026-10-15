@@ -1,7 +1,8 @@
 # Local research network pilot
 
-Status: local implementation verified; ready for coordinator testing under
-[epic #6](https://github.com/dhuzard/orcid-biosketch/issues/6).
+Status: the local pilot and working-group extension are verified and ready for
+coordinator testing under [milestone #8](https://github.com/dhuzard/orcid-playground/issues/8)
+and [epic #6](https://github.com/dhuzard/orcid-playground/issues/6).
 
 The pilot tests whether following research outputs and preparing a working-group
 team pack are useful enough to return to. It runs as one local workspace with
@@ -30,23 +31,35 @@ outputs, groups, and imported records persist at `.local/network.sqlite3`; use t
 same command to resume. For a fresh participant, select a new path such as
 `--data .local/participant-02.sqlite3`. Run only one server per data file.
 
-## Five-minute test
+## Five-minute working-group test
 
-Use sample data so network latency and record completeness do not affect the
-first usability test. Ask the participant to work without hints; record where
-they need help.
+Use a real group and a small roster supplied by its coordinator. The following
+workflow describes milestone #8 and is awaiting implementation verification.
+Allow the initial public-record imports to finish before starting the timer;
+network latency and public-record completeness are separate observations.
+For an offline rehearsal, use the labelled sample data. Ask the coordinator to
+work without hints and record where they need help.
 
 | Time | Task | What to observe |
 |---|---|---|
-| 0–1 min | Load samples and find an interesting update in Feed. | Can they explain what changed and distinguish an observed update from a publication date? |
-| 1–2 min | Open People, unfollow a researcher, then follow them again. | Can they predict which updates belong in their feed? |
-| 2–3 min | Save an output, find it in Saved, then remove it. | Can they recover something worth reading without help? |
-| 3–4 min | Create a working group from two researchers and inspect its outputs. | Can they understand the roster and recognise shared works without duplicate entries? |
-| 4–5 min | Download the group's team pack and inspect its roster and references. | Would these files help with a real report or proposal? Is their scope clear? |
+| 0–1 min | Open the group roster and record one member's role, expertise, and contribution. | Can they distinguish locally entered details from imported ORCID assertions? |
+| 1–2 min | Select two relevant suggested outputs for the project collection. | Do they understand that a member's publication is not automatically a project output? |
+| 2–3 min | Create a collaboration request with an owner and deadline, then resolve it. | Is ownership clear? Do they understand that no message or notification is sent? |
+| 3–4 min | Choose project outputs, a member subset, and a date range in Team pack. | Can they predict which people and outputs will be included? |
+| 4–5 min | Download the pack and inspect its roster, references, and manifest. | Does the pack match the chosen scope, and would it help with the actual deliverable? |
 
-Reload the browser and confirm that follows, groups, and any remaining saved
-outputs persist. Separately, restart the server with the same data path to check
-that the workspace survives a process restart.
+To build the roster, create a group, paste ORCID iDs or links in its bulk-add
+control, review the preview, and explicitly start importing. Pasted Markdown
+links and whitespace, comma, or semicolon separators are supported. Repeated
+iDs count once, with a limit of 50 unique entries. Existing imported profiles
+can be reused without refreshing. Inspect each result: failed entries are not
+added to the group, and retrying failures preserves successful additions.
+Cancellation takes effect between records. The **+** control on People cards
+also adds an imported researcher to an existing group.
+
+Reload the browser and confirm that the roster, local member details, project
+selections, and request status persist. Separately, restart the server with the
+same data path to check that the workspace survives a process restart.
 
 For an optional live-data test, import an ORCID iD or link, inspect the public
 record, and refresh it manually. The first import is a baseline: existing works
@@ -59,9 +72,23 @@ edit a real ORCID record just to manufacture a test update.
 
 - Importing a public record follows it locally; it does not authenticate its
   holder, notify them, or claim that they joined this application.
-- Groups are locally curated rosters. Membership is unconfirmed. Their combined
-  output library and exports contain members' outputs, which are not necessarily
-  outputs of that group or project.
+- Groups are locally curated rosters. Membership is unconfirmed. Roles,
+  expertise, contributions, and project selections record the local coordinator's
+  decisions; they are not verified statements or changes to anyone's ORCID.
+- Member outputs are suggestions until selected for the project collection.
+  Team packs can contain the selected project collection or all member outputs;
+  neither constitutes researcher-confirmed project attribution. Check the scope
+  and filters in the pack's manifest before sharing.
+- Export date filters use publication dates, not import dates. Partially known
+  dates are included when their possible date interval overlaps the chosen
+  range; undated outputs are excluded when a date bound is set. The manifest
+  records this policy. A member with no public works can still appear in the
+  roster and receive local details and requests.
+- Requests are local coordination notes. Assigning an owner or deadline does
+  not notify that person or establish that they accepted the task. Local notes
+  and roster details can be included in exports; review the pack before sharing.
+  Exported group metadata includes requests owned by chosen members and
+  unassigned requests. Publication-date filters do not filter those requests.
 - Publication dates and observation times are separate. Shared works with the
   same DOI are deduplicated while retaining their researcher associations.
 - Public records can be incomplete or out of date. Refresh is manual; there is
@@ -83,15 +110,16 @@ repository's pre-existing synchronization workflow.
 
 ## Success measures and feedback
 
-For the first five participants, aim for four to complete saving an output and
-creating/exporting a group without assistance. Record task completion, time,
+For the first five participants, aim for four to complete project-output
+selection and scoped group export without assistance. Record task completion, time,
 errors, and help needed. Every participant should understand that sample data
 are fictional, roster membership is unconfirmed, and an observed update is not
 necessarily a recent publication. Misunderstandings here require a design fix.
 
 Ask one coordinator to prepare a small real team report using the exported pack
-and compare elapsed time with their usual process. During a one-week follow-up,
-record whether participants return voluntarily and which outputs they save;
+and compare elapsed time and corrections with their usual process. Record
+missing public data separately from interface failures. During a one-week follow-up,
+record whether the coordinator returns to update outputs or resolve requests;
 these are observations to collect, not claims already demonstrated.
 
 Feedback prompts:
@@ -102,6 +130,11 @@ Feedback prompts:
 4. Which matters most next: shared groups, sign-in, a digest, or better exports?
 
 Add observations and reproducible failures to
-[epic #6](https://github.com/dhuzard/orcid-biosketch/issues/6), including the view,
+[milestone #8](https://github.com/dhuzard/orcid-playground/issues/8), including the view,
 steps, expected result, actual result, and whether the data were sample or live.
-The developer contract is in [network-api.md](network-api.md).
+The developer contract is in [network-api.md](network-api.md), with the working-group
+extension in [group-workflow-api.md](group-workflow-api.md).
+
+After the local test, a separate hosted milestone can add ORCID sign-in, shared
+accounts, accepted invitations, permissions, and visibility controls. The local
+pilot does not require an API client registration or a callback URL.

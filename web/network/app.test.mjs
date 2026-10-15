@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { safeUrl, dateLabel, feedEntries, groupWorks } from './app.js';
+import { safeUrl, dateLabel, feedEntries, groupWorks, parseOrcidList, groupRoute } from './app.js';
 
 test('external links reject executable and relative URLs', () => {
   for (const value of ['javascript:alert(1)', 'data:text/html,hello', '/api/state', '', null]) assert.equal(safeUrl(value), null);
@@ -35,4 +35,33 @@ test('feed filters follows, merges shared updates, and uses observed date', () =
 test('group bibliography includes shared works only once', () => {
   assert.deepEqual(groupWorks(data, ['a', 'b']).map(w => w.id), ['shared']);
   assert.deepEqual(groupWorks(data, []).map(w => w.id), []);
+});
+
+test('bulk roster parses pasted Markdown, HTML spaces, URL and bare ID duplicates', () => {
+  const result = parseOrcidList('[0000-0001-5616-7692](https://orcid.org/0000-0001-5616-7692) &#x20;\n0000-0003-4820-7951; [colleague](https://orcid.org/0000-0002-3709-5504) &#32;,0000-0001-5616-7692');
+  assert.equal(result.overLimit, false);
+  assert.deepEqual(result.entries.map(e => [e.id, e.valid]), [
+    ['0000-0001-5616-7692', true], ['0000-0003-4820-7951', true], ['0000-0002-3709-5504', true]
+  ]);
+});
+
+test('bulk roster validates checksums, X check digits and exact ORCID URLs', () => {
+  const result = parseOrcidList('https://orcid.org/0000-0002-1825-0097/ 0000-0002-1825-0098 0000-0002-1694-233x https://evil.example/0000-0002-1825-0097 https://orcid.org.evil.example/0000-0002-1825-0097 junk');
+  assert.deepEqual(result.entries.map(e => e.valid), [true, false, true, false, false, false]);
+  assert.equal(result.entries[2].id, '0000-0002-1694-233X');
+});
+
+test('bulk limit counts unique entries and rejects oversized batches before import', () => {
+  assert.equal(parseOrcidList('0000-0002-1825-0097 '.repeat(70)).overLimit, false);
+  assert.equal(parseOrcidList(Array.from({ length: 50 }, (_, i) => `invalid-${i}`).join('\n')).overLimit, false);
+  assert.equal(parseOrcidList(Array.from({ length: 51 }, (_, i) => `invalid-${i}`).join('\n')).overLimit, true);
+  assert.deepEqual(parseOrcidList('  &#x20; '), { entries: [], overLimit: false });
+});
+
+test('group routes restore a selected group and tolerate malformed hashes', () => {
+  assert.deepEqual(groupRoute('#groups/abc-123'), { view: 'groups', id: 'abc-123' });
+  assert.deepEqual(groupRoute('#groups'), { view: 'groups', id: null });
+  assert.deepEqual(groupRoute('#groups/%invalid'), { view: 'groups', id: null });
+  assert.deepEqual(groupRoute('#people'), { view: 'people', id: null });
+  assert.deepEqual(groupRoute('#nonsense'), { view: 'feed', id: null });
 });

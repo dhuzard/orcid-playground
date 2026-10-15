@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import calendar
 import hashlib
 import io
 import json
@@ -11,7 +12,7 @@ import sqlite3
 import uuid
 import zipfile
 from contextlib import closing, contextmanager
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,42 @@ def _csv_cell(value: str) -> str:
     return "'" + value if value.lstrip().startswith(("=", "+", "-", "@")) else value
 
 
+def _bounded_text(value: Any, field: str, limit: int, *, required: bool = False) -> str:
+    if not isinstance(value, str) or len(value) > limit or (required and not value.strip()):
+        raise ValueError(f"{field} must contain {'1–' if required else 'at most '}{limit} characters")
+    return value.strip()
+
+
+def _date_bound(value: Any, field: str) -> date | None:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} must be empty or a date in YYYY-MM-DD format")
+    if not value:
+        return None
+    try:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            raise ValueError()
+        return date.fromisoformat(value)
+    except ValueError as error:
+        raise ValueError(f"{field} must be empty or a real date in YYYY-MM-DD format") from error
+
+
+def _publication_interval(value: str) -> tuple[date, date] | None:
+    """A partial publication date denotes its full calendar year or month."""
+    try:
+        if re.fullmatch(r"\d{4}", value):
+            year = int(value)
+            return date(year, 1, 1), date(year, 12, 31)
+        if re.fullmatch(r"\d{4}-\d{2}", value):
+            year, month = map(int, value.split("-"))
+            return date(year, month, 1), date(year, month, calendar.monthrange(year, month)[1])
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            day = date.fromisoformat(value)
+            return day, day
+    except ValueError:
+        pass
+    return None
+
+
 class NetworkStore:
     """One SQLite file; each mutation is a durable all-or-nothing transaction.
 
@@ -75,6 +112,8 @@ class NetworkStore:
             data = json.loads(connection.execute("SELECT data FROM workspace WHERE id=1").fetchone()[0])
             if data.get("version") != 1:
                 raise ValueError("Unsupported network workspace version")
+            for group in data["groups"].values():
+                self._group_defaults(group)
             yield data
             if write:
                 connection.execute("UPDATE workspace SET data=? WHERE id=1",
@@ -115,6 +154,28 @@ class NetworkStore:
             if event["people_ids"]:
                 events[key] = event
         data["events"] = events
+        for group in data["groups"].values():
+            cls._group_defaults(group)
+            members = set(group["member_ids"])
+            group["member_details"] = {key: details for key, details in group["member_details"].items()
+                                       if key in members}
+            group["selected_work_ids"] = [key for key in group["selected_work_ids"]
+                                           if key in works and members.intersection(works[key]["people_ids"])]
+            for request in group["requests"]:
+                if request["owner_id"] not in members:
+                    request["owner_id"] = None
+
+    @staticmethod
+    def _group_defaults(group: dict) -> None:
+        group.setdefault("member_details", {})
+        group.setdefault("selected_work_ids", [])
+        group.setdefault("requests", [])
+
+    @staticmethod
+    def _group(data: dict, id: str) -> dict:
+        if not isinstance(id, str) or id not in data["groups"]:
+            raise ValueError("Unknown group")
+        return data["groups"][id]
 
     def state(self) -> dict:
         with self._transaction() as data:
@@ -199,6 +260,10 @@ class NetworkStore:
                     # Adding/changing a DOI is metadata maintenance, not a new work.
                     if prior_key in data["saved"] and key not in data["saved"]:
                         data["saved"].append(key)
+                    for group in data["groups"].values():
+                        if (person_id in group["member_ids"] and prior_key in group["selected_work_ids"]
+                                and key not in group["selected_work_ids"]):
+                            group["selected_work_ids"].append(key)
                     if prior_key in data["events"]:
                         prior_event = data["events"][prior_key]
                         if person_id in prior_event.get("people_ids", []):
@@ -247,32 +312,133 @@ class NetworkStore:
             values = self._group_values(data, name, description, member_ids)
             group_id = str(uuid.uuid4())
             data["groups"][group_id] = {"id": group_id, **values, "created_at": _now()}
+            self._group_defaults(data["groups"][group_id])
             return group_id
 
     def update_group(self, id: str, name: str, description: str, member_ids: list) -> None:
         with self._transaction(True) as data:
-            if not isinstance(id, str) or id not in data["groups"]:
-                raise ValueError("Unknown group")
-            data["groups"][id].update(self._group_values(data, name, description, member_ids))
+            self._group(data, id).update(self._group_values(data, name, description, member_ids))
+            self._prune(data)
 
-    def export_group(self, id: str) -> bytes:
+    def add_group_members(self, id: str, member_ids: list) -> None:
+        with self._transaction(True) as data:
+            group = self._group(data, id)
+            values = self._group_values(data, group["name"], group["description"], member_ids)
+            group["member_ids"] = list(dict.fromkeys(group["member_ids"] + values["member_ids"]))
+
+    def set_group_member(self, id: str, person_id: str, role: str, expertise: str, contribution: str) -> None:
+        details = {"role": _bounded_text(role, "Role", 120),
+                   "expertise": _bounded_text(expertise, "Expertise", 500),
+                   "contribution": _bounded_text(contribution, "Contribution", 1000)}
+        with self._transaction(True) as data:
+            group = self._group(data, id)
+            if not isinstance(person_id, str) or person_id not in group["member_ids"]:
+                raise ValueError("Member details require a current group member")
+            group["member_details"][person_id] = details
+
+    def select_group_work(self, id: str, work_id: str, selected: bool) -> None:
+        if not isinstance(work_id, str) or not isinstance(selected, bool):
+            raise ValueError("A work id and boolean selected value are required")
+        with self._transaction(True) as data:
+            group = self._group(data, id)
+            work = self._works(data).get(work_id)
+            if not work or not set(group["member_ids"]).intersection(work["people_ids"]):
+                raise ValueError("Project outputs must belong to a current group member")
+            if selected and work_id not in group["selected_work_ids"]:
+                group["selected_work_ids"].append(work_id)
+            elif not selected and work_id in group["selected_work_ids"]:
+                group["selected_work_ids"].remove(work_id)
+
+    def create_group_request(self, id: str, title: str, description: str,
+                             owner_id: str | None = None, due_date: str = "") -> None:
+        title = _bounded_text(title, "Request title", 160, required=True)
+        description = _bounded_text(description, "Request description", 2000)
+        _date_bound(due_date, "Due date")
+        with self._transaction(True) as data:
+            group = self._group(data, id)
+            if owner_id is not None and (not isinstance(owner_id, str) or owner_id not in group["member_ids"]):
+                raise ValueError("Request owner must be a current group member")
+            group["requests"].append({"id": str(uuid.uuid4()), "title": title, "description": description,
+                                       "owner_id": owner_id, "due_date": due_date,
+                                       "status": "open", "created_at": _now()})
+
+    def set_group_request_status(self, id: str, request_id: str, status: str) -> None:
+        if not isinstance(status, str) or status not in ("open", "resolved"):
+            raise ValueError("Request status must be open or resolved")
+        with self._transaction(True) as data:
+            group = self._group(data, id)
+            request = next((item for item in group["requests"] if item["id"] == request_id), None)
+            if not isinstance(request_id, str) or request is None:
+                raise ValueError("Unknown group request")
+            request["status"] = status
+
+    def export_group(self, id: str, *, scope: str = "members", date_from: str = "",
+                     date_to: str = "", member_ids: list | None = None) -> bytes:
+        if not isinstance(scope, str) or scope not in ("members", "project"):
+            raise ValueError("Export scope must be members or project")
+        start = _date_bound(date_from, "Start date")
+        end = _date_bound(date_to, "End date")
+        if start and end and start > end:
+            raise ValueError("Start date must not be after end date")
+
+        def in_window(work: dict) -> bool:
+            if not start and not end:
+                return True
+            interval = _publication_interval(work["publication_date"])
+            return bool(interval and (not start or interval[1] >= start) and (not end or interval[0] <= end))
+
         with self._transaction() as data:
-            if not isinstance(id, str) or id not in data["groups"]:
-                raise ValueError("Unknown group")
-            group = data["groups"][id]
-            group_data = {**data, "profiles": {person_id: data["profiles"][person_id]
-                                               for person_id in group["member_ids"]}}
-            selected = [w["_source"] for w in self._works(group_data).values()]
+            group = self._group(data, id)
+            if member_ids is None:
+                members = group["member_ids"]
+            else:
+                if (not isinstance(member_ids, list) or not member_ids
+                        or any(not isinstance(person_id, str) or person_id not in group["member_ids"]
+                               for person_id in member_ids)):
+                    raise ValueError("Export members must be a nonempty list of current group members")
+                members = list(dict.fromkeys(member_ids))
+            profiles = {}
+            for person_id in members:
+                profile = data["profiles"][person_id]
+                works = [work for work in profile["bio"]["works"]
+                         if (scope == "members" or _work_key(person_id, work, profile["demo"]) in group["selected_work_ids"])
+                         and in_window(work)]
+                profiles[person_id] = {**profile, "bio": {**profile["bio"], "works": works}}
+            group_data = {**data, "profiles": profiles}
+            exported_works = self._works(group_data)
+            selected = [w["_source"] for w in exported_works.values()]
+            exported_group = {
+                **group, "member_ids": members,
+                "member_details": {person_id: details for person_id, details in group["member_details"].items()
+                                   if person_id in members},
+                "selected_work_ids": [key for key in group["selected_work_ids"] if key in exported_works],
+                "requests": [request for request in group["requests"]
+                             if request["owner_id"] is None or request["owner_id"] in members],
+            }
             roster = io.StringIO(newline="")
             writer = csv.writer(roster)
-            writer.writerow(["name", "orcid", "profile_id", "demo", "membership"])
+            writer.writerow(["name", "orcid", "profile_id", "demo", "membership", "role", "expertise", "contribution"])
+            manifest = {
+                "group_id": id, "group_name": group["name"], "generated_at": _now(),
+                "scope": scope, "date_from": date_from, "date_to": date_to, "member_ids": members,
+                "work_ids": list(exported_works), "work_count": len(selected),
+                "membership": "locally curated; unconfirmed",
+                "attribution": ("Locally selected project outputs; attribution is unconfirmed by members."
+                                if scope == "project" else "Member publications; project attribution is not asserted."),
+                "date_filter_policy": "Partial dates use calendar interval overlap; unknown or invalid publication dates are excluded when date bounds are set.",
+                "biosketch_scope": "Each biosketch includes only that member's works matching the selected scope and date window.",
+                "group_metadata_policy": "Group metadata includes only exported members, their details and exported project selections. Requests are included only when unassigned or owned by an exported member; publication-date filters do not filter requests.",
+                "source": "Public ORCID records at last manual import, or explicitly marked fictional demo data.",
+            }
             output = io.BytesIO()
             with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
-                for person_id in group["member_ids"]:
-                    profile = data["profiles"][person_id]
+                for person_id in members:
+                    profile = profiles[person_id]
                     bio = profile["bio"]
+                    details = group["member_details"].get(person_id, {})
                     writer.writerow([_csv_cell(bio["person"]["name"]), "" if profile["demo"] else person_id,
-                                     person_id, str(profile["demo"]).lower(), "locally curated; unconfirmed"])
+                                     person_id, str(profile["demo"]).lower(), "locally curated; unconfirmed",
+                                     *[_csv_cell(details.get(field, "")) for field in ("role", "expertise", "contribution")]])
                     markdown = render_markdown(bio, max_works=len(bio["works"]))
                     if profile["demo"]:
                         markdown = "**Fictional demonstration profile — not an ORCID record.**\n\n" + markdown
@@ -282,11 +448,15 @@ class NetworkStore:
                 archive.writestr("roster.csv", "\ufeff" + roster.getvalue())
                 archive.writestr("bibliography.bib", to_bibtex({"works": selected}))
                 archive.writestr("bibliography.ris", to_ris({"works": selected}))
-                archive.writestr("group.json", json.dumps(group, ensure_ascii=False, indent=2))
+                archive.writestr("group.json", json.dumps(exported_group, ensure_ascii=False, indent=2))
+                archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
                 archive.writestr("README.txt", f"{group['name']} — local pilot team pack\n\n"
                                  "Membership is locally curated and unconfirmed. Member publications are not automatically project outputs.\n"
                                  "Records reflect their last manual import; this is not a live ORCID record.\n"
                                  "Citation metadata can be incomplete: summary records may omit authors or venues. Missing contributors are not inferred.\n"
+                                 "Role, expertise, contribution and project selections are local, unconfirmed entries.\n"
+                                 "See manifest.json for export scope, members and publication-date filters. Biosketch works obey these filters.\n"
+                                 "Partial dates use calendar interval overlap; unknown or invalid dates are excluded when date bounds are set.\n"
                                  "Profiles with demo=true and titles marked [Demo] are fictional demonstration data.\n")
             return output.getvalue()
 

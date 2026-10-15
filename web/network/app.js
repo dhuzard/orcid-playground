@@ -7,6 +7,44 @@ let editorGroup = undefined;
 let search = '';
 let busy = false;
 let loaded = false;
+let groupTab = 'roster';
+let bulkRunning = false;
+let activeBulkGroup = null;
+let pendingCreateGroup = false;
+const groupDrafts = new Map();
+
+export function parseOrcidList(text) {
+  const tokens = text.replace(/&#(?:x20|32);/gi, ' ').replace(/\[[^\]]*\]\(([^)]+)\)/g, '$1').trim().split(/[\s,;]+/).filter(Boolean);
+  const seen = new Set();
+  const entries = [];
+  for (const token of tokens) {
+    const id = token.replace(/^https?:\/\/(?:www\.)?orcid\.org\//i, '').replace(/\/$/, '').toUpperCase();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    let valid = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(id);
+    if (valid) {
+      const digits = id.replaceAll('-', '');
+      let total = 0;
+      for (const digit of digits.slice(0, 15)) total = (total + Number(digit)) * 2;
+      const check = (12 - total % 11) % 11;
+      valid = digits[15] === (check === 10 ? 'X' : String(check));
+    }
+    entries.push({ id, valid, status: valid ? 'ready' : 'invalid', message: valid ? 'Ready to import' : 'Invalid ORCID iD or checksum' });
+  }
+  return { entries, overLimit: entries.length > 50 };
+}
+
+export function groupRoute(hash) {
+  const [view, encodedId] = hash.replace(/^#/, '').split('/');
+  let id = null;
+  try { id = view === 'groups' && encodedId ? decodeURIComponent(encodedId) : null; } catch { /* Invalid URL stays at the groups list. */ }
+  return { view: ['feed', 'people', 'groups', 'saved'].includes(view) ? view : 'feed', id };
+}
+
+function draftsFor(group) {
+  if (!groupDrafts.has(group.id)) groupDrafts.set(group.id, { bulkText: '', bulk: null, cancel: false, members: {}, request: {}, pack: {} });
+  return groupDrafts.get(group.id);
+}
 
 export function safeUrl(value) {
   try {
@@ -62,7 +100,7 @@ function el(tag, attrs = {}, ...children) {
   return node;
 }
 
-const button = (label, action, variant = 'quiet', attrs = {}) => el('button', { type: 'button', class: `button ${variant}`, onclick: action, disabled: busy, ...attrs }, label);
+const button = (label, action, variant = 'quiet', attrs = {}) => el('button', { type: 'button', class: `button ${variant}`, onclick: action, disabled: busy || bulkRunning, ...attrs }, label);
 const tag = (label, demo = false) => el('span', { class: `chip${demo ? ' demo' : ''}` }, label);
 const externalLink = (label, url, attrs = {}) => {
   const safe = safeUrl(url);
@@ -81,7 +119,7 @@ function notice(message, error = false) {
 }
 
 async function mutate(path, body = {}, success = '') {
-  if (busy) return false;
+  if (busy || bulkRunning) return false;
   busy = true;
   document.querySelectorAll('button').forEach(node => { node.disabled = true; });
   document.querySelector('#view').setAttribute('aria-busy', 'true');
@@ -190,9 +228,8 @@ function personGroupPicker(person) {
           button('Add', async () => {
             const current = state.groups.find(item => item.id === group.id);
             if (!current || busy) return;
-            if (await mutate('/api/groups/update', {
-              id: current.id, name: current.name, description: current.description,
-              member_ids: [...new Set([...current.member_ids, person.id])],
+            if (await mutate('/api/groups/members/add', {
+              id: current.id, member_ids: [person.id],
             }, `${person.name} added to ${current.name}.`)) {
               render();
               const nextTrigger = document.getElementById(triggerId);
@@ -276,8 +313,168 @@ function groupEditor(group) {
   el('div', { class: 'card-actions' }, el('button', { type: 'submit', class: 'button', disabled: busy }, group ? 'Save group' : 'Create group'), button('Cancel', () => { editorGroup = undefined; render(); })));
 }
 
-function exportLink(group) {
-  return el('a', { class: 'button accent', href: `/api/groups/${encodeURIComponent(group.id)}/export`, download: '' }, '↓ Download team pack');
+async function postState(path, body) {
+  const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Pilot-Request': '1' }, body: JSON.stringify(body) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || `Request failed (${response.status})`);
+  state = result;
+}
+
+async function runBulk(group, retry = false) {
+  const draft = draftsFor(group);
+  if (busy || bulkRunning || !draft.bulk || draft.bulk.overLimit) return;
+  const pending = draft.bulk.entries.filter(entry => entry.valid && (retry ? entry.status === 'error' : ['ready', 'cancelled'].includes(entry.status)));
+  draft.cancel = false;
+  bulkRunning = true;
+  activeBulkGroup = group.id;
+  try {
+    for (const entry of pending) {
+      if (draft.cancel) { entry.status = 'cancelled'; entry.message = 'Not processed · ready to resume'; continue; }
+      entry.status = 'loading'; entry.message = 'Reading public record…'; render();
+      try {
+        let person = state.people.find(p => p.orcid === entry.id && !p.demo);
+        const reused = Boolean(person);
+        if (!person) {
+          await postState('/api/import', { orcid: entry.id });
+          person = state.people.find(p => p.orcid === entry.id && !p.demo);
+          if (!person) throw new Error('Import returned no researcher. No member was added.');
+        }
+        const current = state.groups.find(g => g.id === group.id);
+        if (!current) throw new Error('This group is no longer available.');
+        const included = current.member_ids.includes(person.id);
+        if (!included) await postState('/api/groups/members/add', { id: group.id, member_ids: [person.id] });
+        entry.status = 'done';
+        entry.message = `${person.name} · ${included ? 'already a member' : 'added'}${reused ? ' · existing import reused' : ''}`;
+      } catch (error) { entry.status = 'error'; entry.message = error.message || 'Could not reach the server. Retry this entry.'; }
+      render();
+    }
+  } finally {
+    bulkRunning = false;
+    activeBulkGroup = null;
+    render();
+    notice(draft.cancel ? 'Import stopped after the current record. Completed additions are saved.' : 'Bulk import finished. Review the per-record results below.');
+  }
+}
+
+function bulkRoster(group) {
+  const draft = draftsFor(group);
+  const input = el('textarea', { class: 'input', rows: '4', 'aria-label': 'ORCID list', placeholder: 'Paste ORCID iDs or profile links, one per line', disabled: bulkRunning, oninput: event => { draft.bulkText = event.target.value; draft.bulk = null; results.replaceChildren(); } }, draft.bulkText);
+  const results = el('div', { class: 'bulk-results', 'aria-live': 'polite' });
+  const refresh = () => {
+    if (!draft.bulk) return;
+    const entries = draft.bulk.entries;
+    results.replaceChildren(
+      el('p', { class: 'helper' }, `${entries.filter(e => e.valid).length} valid · ${entries.filter(e => !e.valid).length} invalid · duplicates removed`),
+      draft.bulk.overLimit && el('p', { class: 'inline-error', role: 'alert' }, 'Use at most 50 unique entries per batch. No imports have started.'),
+      el('ul', { class: 'bulk-list' }, entries.map(entry => el('li', { class: `bulk-entry ${entry.status}` }, el('strong', {}, entry.id), el('span', {}, entry.status === 'ready' && state.people.some(p => p.orcid === entry.id && !p.demo) ? 'Existing import will be reused' : entry.message)))),
+      el('div', { class: 'card-actions' },
+        button('Import & add to group', () => runBulk(group), 'accent', { disabled: busy || bulkRunning || draft.bulk.overLimit || !entries.some(e => ['ready', 'cancelled'].includes(e.status)) }),
+        entries.some(e => e.status === 'error') && button('Retry failed entries', () => runBulk(group, true), 'quiet', { disabled: busy || bulkRunning || draft.bulk.overLimit }),
+        bulkRunning && button(draft.cancel ? 'Stopping after this record…' : 'Stop after current record', () => { draft.cancel = true; refresh(); }, 'quiet', { disabled: draft.cancel }))
+    );
+  };
+  refresh();
+  return el('section', { class: 'editor' }, el('h3', {}, 'Add collaborators by ORCID'),
+    el('p', { class: 'helper' }, 'Paste up to 50 ORCID iDs or links, including Markdown links. Preview first, then import public records one at a time. Existing imports are reused.'),
+    el('label', { class: 'field' }, 'ORCID list', input),
+    button('Preview list', () => { draft.bulk = parseOrcidList(input.value); refresh(); }, 'quiet'), results);
+}
+
+function memberEditor(group, person) {
+  const drafts = draftsFor(group).members;
+  const draft = drafts[person.id] ||= { ...(group.member_details?.[person.id] || {}) };
+  const field = (key, label, limit, multiline = false) => {
+    const attrs = { class: 'input', maxlength: String(limit), name: key, 'aria-label': label, oninput: event => { draft[key] = event.target.value; } };
+    return el('label', { class: 'field' }, label, multiline ? el('textarea', { ...attrs, rows: '2' }, draft[key] || '') : el('input', { ...attrs, value: draft[key] || '' }));
+  };
+  return el('form', { class: 'editor member-editor', onsubmit: async event => {
+    event.preventDefault();
+    if (await mutate('/api/groups/member', { id: group.id, person_id: person.id, role: draft.role || '', expertise: draft.expertise || '', contribution: draft.contribution || '' }, `Local details saved for ${person.name}.`)) render();
+  } }, el('div', { class: 'person-head' }, avatar(person), el('div', {}, el('h3', {}, person.name), el('p', { class: 'helper' }, person.affiliation || 'Affiliation not provided'))),
+    person.orcid && externalLink(person.orcid, `https://orcid.org/${person.orcid}`),
+    el('fieldset', { class: 'form-fields', disabled: bulkRunning }, field('role', 'Project role', 120), field('expertise', 'Expertise', 500), field('contribution', 'Contribution to this group', 1000, true),
+      el('button', { type: 'submit', class: 'button quiet small', disabled: busy || bulkRunning }, 'Save member details')));
+}
+
+function renderRoster(view, group) {
+  view.append(el('p', { class: 'helper' }, 'Roles, expertise, and contributions are recorded locally by this workspace. Researchers have not confirmed these details.'), bulkRoster(group));
+  const members = peopleFor(group.member_ids);
+  view.append(members.length ? el('div', { class: 'grid' }, members.map(p => memberEditor(group, p))) : empty('Your roster is ready to grow.', 'Paste your collaborators’ ORCID iDs above, or use Edit group & roster to add existing people.'));
+}
+
+function renderProjectOutputs(view, group) {
+  const list = el('div', { class: 'stack' });
+  const selected = new Set(group.selected_work_ids || []);
+  const results = () => {
+    const works = groupWorks(state, group.member_ids).filter(matches);
+    const output = work => el('div', { class: 'project-output' }, workCard(work),
+      el('div', { class: 'output-action' }, selected.has(work.id) ? tag('Selected for this project') : tag('Suggested · member output'),
+        button(selected.has(work.id) ? 'Remove from project' : '+ Select for project', () => update('/api/groups/output', { id: group.id, work_id: work.id, selected: !selected.has(work.id) }, selected.has(work.id) ? 'Output removed from the project collection.' : 'Output selected for this project.'), 'quiet small', { 'aria-label': `${selected.has(work.id) ? 'Remove from' : 'Select for'} project: ${work.title}` })));
+    const chosen = works.filter(w => selected.has(w.id));
+    const suggested = works.filter(w => !selected.has(w.id));
+    list.replaceChildren(el('h3', {}, `Project collection (${chosen.length})`), ...(chosen.length ? chosen.map(output) : [el('p', { class: 'helper' }, 'Select relevant outputs below to build this project’s collection.')]),
+      el('h3', { class: 'spaced' }, `Suggested member outputs (${suggested.length})`), ...(suggested.length ? suggested.map(output) : [el('p', { class: 'helper' }, 'No additional member outputs match this view.')]));
+  };
+  view.append(el('p', { class: 'helper' }, 'Member outputs are suggestions. Selecting one records your local decision that it belongs to this project; it does not change ORCID or confirm attribution with the authors.'), toolbar('BUILD YOUR PROJECT COLLECTION', 'Search group outputs', results), list);
+  results();
+}
+
+function renderRequests(view, group) {
+  const draft = draftsFor(group).request;
+  const input = (key, attrs = {}) => el('input', { class: 'input', value: draft[key] || '', oninput: event => { draft[key] = event.target.value; }, ...attrs });
+  const title = input('title', { required: true, maxlength: '160' });
+  const description = el('textarea', { class: 'input', rows: '3', maxlength: '2000', 'aria-label': 'Details', oninput: event => { draft.description = event.target.value; } }, draft.description || '');
+  const owner = el('select', { class: 'input', 'aria-label': 'Owner', onchange: event => { draft.owner_id = event.target.value; } }, el('option', { value: '' }, 'Unassigned'), peopleFor(group.member_ids).map(p => el('option', { value: p.id }, p.name)));
+  owner.value = group.member_ids.includes(draft.owner_id) ? draft.owner_id : '';
+  const date = input('due_date', { type: 'date' });
+  view.append(el('p', { class: 'helper' }, 'Track small tasks and collaboration needs. These requests stay in your local workspace; no messages or invitations are sent.'),
+    el('form', { class: 'editor', onsubmit: async event => {
+      event.preventDefault();
+      if (await mutate('/api/groups/requests', { id: group.id, title: title.value.trim(), description: description.value.trim(), owner_id: owner.value || null, due_date: date.value }, 'Request added.')) { draftsFor(group).request = {}; render(); }
+    } }, el('h3', {}, 'Create a request'), el('fieldset', { class: 'form-fields', disabled: bulkRunning },
+      el('label', { class: 'field' }, 'What does the group need?', title), el('label', { class: 'field' }, 'Details', description),
+      el('div', { class: 'grid' }, el('label', { class: 'field' }, 'Owner', owner), el('label', { class: 'field' }, 'Due date (optional)', date)),
+      el('button', { type: 'submit', class: 'button accent', disabled: busy || bulkRunning }, 'Add request'))));
+  const requests = group.requests || [];
+  view.append(el('div', { class: 'stack' }, requests.length ? [...requests].sort((a, b) => (a.status === 'resolved') - (b.status === 'resolved')).map(request => el('article', { class: 'work-card' },
+    el('div', { class: 'card-top' }, el('h3', {}, request.title), tag(request.status)),
+    el('p', { class: 'request-description' }, request.description),
+    el('p', { class: 'helper' }, `Owner: ${state.people.find(p => p.id === request.owner_id)?.name || 'Unassigned'} · Due: ${request.due_date ? dateLabel(request.due_date) : 'No deadline'}`),
+    button(request.status === 'resolved' ? 'Reopen request' : 'Mark resolved', () => update('/api/groups/requests/update', { id: group.id, request_id: request.id, status: request.status === 'resolved' ? 'open' : 'resolved' }), 'quiet small')))
+    : empty('What could your collaborators help with?', 'Record a protocol review, an equipment need, or a reporting task.')));
+}
+
+function renderTeamPack(view, group) {
+  const draft = draftsFor(group).pack;
+  const scope = el('select', { class: 'input', 'aria-label': 'Output scope', onchange: event => { draft.scope = event.target.value; } }, el('option', { value: 'project' }, 'Selected project outputs'), el('option', { value: 'members' }, 'All outputs by chosen members'));
+  scope.value = draft.scope || 'project';
+  const date = key => el('input', { class: 'input', type: 'date', value: draft[key] || '', oninput: event => { draft[key] = event.target.value; } });
+  const from = date('from'); const to = date('to');
+  const members = peopleFor(group.member_ids).map(person => ({ person, input: el('input', { type: 'checkbox', checked: !draft.members || draft.members.includes(person.id), onchange: () => { draft.members = members.filter(m => m.input.checked).map(m => m.person.id); } }) }));
+  const error = el('p', { class: 'inline-error', role: 'alert' });
+  const submit = el('button', { type: 'submit', class: 'button accent', disabled: busy || bulkRunning }, '↓ Download team pack');
+  const form = el('form', { class: 'editor', onsubmit: async event => {
+    event.preventDefault(); error.textContent = '';
+    const ids = members.filter(m => m.input.checked).map(m => m.person.id);
+    if (!ids.length) { error.textContent = 'Choose at least one member.'; return; }
+    if (from.value && to.value && from.value > to.value) { error.textContent = 'The end date must be on or after the start date.'; return; }
+    const params = new URLSearchParams({ scope: scope.value, members: ids.join(','), from: from.value, to: to.value });
+    submit.disabled = true; submit.textContent = 'Preparing team pack…';
+    try {
+      const response = await fetch(`/api/groups/${encodeURIComponent(group.id)}/export?${params}`, { headers: { 'X-Pilot-Request': '1' } });
+      if (!response.ok) { const result = await response.json(); throw new Error(result.error || 'Could not build the team pack.'); }
+      const url = URL.createObjectURL(await response.blob());
+      const link = el('a', { href: url, download: `${group.name.replace(/[^\w-]+/g, '-') || 'group'}-team-pack.zip` });
+      document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notice('Team pack downloaded with your selected scope and filters.');
+    } catch (failure) { error.textContent = failure.message || 'Could not reach the server. Please try again.'; }
+    finally { submit.disabled = busy || bulkRunning; submit.textContent = '↓ Download team pack'; }
+  } }, el('h3', {}, 'Build a team pack'), el('p', { class: 'helper' }, `Download the roster, bibliography, member biosketches, and a manifest describing the selection. Your project collection contains ${(group.selected_work_ids || []).length} selected outputs and is the default scope.`),
+    el('fieldset', { class: 'form-fields', disabled: bulkRunning }, el('label', { class: 'field' }, 'Output scope', scope),
+      el('fieldset', { class: 'roster' }, el('legend', {}, 'Include members'), members.map(({ person, input }) => el('label', { class: 'check-label' }, input, person.name))),
+      el('div', { class: 'grid' }, el('label', { class: 'field' }, 'Published from (optional)', from), el('label', { class: 'field' }, 'Published through (optional)', to)),
+      el('p', { class: 'helper' }, 'Date filters apply to outputs, including each biosketch. Outputs without publication dates are excluded when a date filter is used. Year-only and month-only dates are included when they overlap the chosen window.'), error, submit));
+  view.append(form);
 }
 
 function renderGroups(view) {
@@ -285,18 +482,22 @@ function renderGroups(view) {
   if (selectedGroup) {
     const group = state.groups.find(g => g.id === selectedGroup);
     if (group) {
-      view.append(button('← All groups', () => { selectedGroup = null; editorGroup = undefined; search = ''; render(); }, 'quiet back'),
-        el('div', { class: 'group-title' }, el('div', {}, el('h2', {}, group.name), el('p', { class: 'helper' }, group.description)), exportLink(group)),
-        el('p', { class: 'helper' }, 'Locally curated, unconfirmed membership. This bibliography contains member outputs; inclusion does not assert that an output belongs to this project.'),
-        button('Edit group & roster', () => { editorGroup = group; render(); }, 'quiet small'),
-        el('div', { class: 'group-members' }, peopleFor(group.member_ids).map(p => el('span', { class: 'member-pill' }, p.name, p.demo ? ' · Demo' : ''))));
-      const list = el('div', { class: 'stack' });
-      const results = () => {
-        const works = groupWorks(state, group.member_ids).filter(matches);
-        list.replaceChildren(...(works.length ? works.map(w => workCard(w)) : [empty('A shared library starts here.', search ? 'No outputs match this search.' : 'Add members with public outputs to build the group bibliography.')]));
-      };
-      view.append(toolbar('MEMBER OUTPUTS · SHARED WORKS APPEAR ONCE', 'Search group outputs', results), list);
-      results();
+      view.append(button('← All groups', () => { editorGroup = undefined; location.hash = 'groups'; }, 'quiet back'),
+        el('div', { class: 'group-title' }, el('div', {}, el('h2', {}, group.name), el('p', { class: 'helper' }, group.description)), button('Edit group & roster', () => { editorGroup = group; render(); }, 'quiet small')),
+        el('p', { class: 'helper' }, `${group.member_ids.length} members · Locally curated group. Membership and project attribution have not been confirmed by researchers.`));
+      const labels = [['roster', 'Roster'], ['outputs', 'Project outputs'], ['requests', 'Requests'], ['pack', 'Team pack']];
+      const tabs = el('div', { class: 'group-tabs', role: 'tablist', 'aria-label': 'Group sections' }, labels.map(([id, label], index) => button(label, () => {
+        groupTab = id; search = ''; render(); document.getElementById(`group-tab-${id}`)?.focus();
+      }, groupTab === id ? '' : 'quiet', { id: `group-tab-${id}`, role: 'tab', 'aria-selected': String(groupTab === id), 'aria-controls': 'group-panel', tabindex: groupTab === id ? '0' : '-1', onkeydown: event => {
+        const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!offset && !['Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? labels.length - 1 : (index + offset + labels.length) % labels.length;
+        document.getElementById(`group-tab-${labels[next][0]}`)?.click();
+      } })));
+      const panel = el('section', { id: 'group-panel', role: 'tabpanel', 'aria-labelledby': `group-tab-${groupTab}`, tabindex: '0' });
+      view.append(tabs, panel);
+      ({ roster: renderRoster, outputs: renderProjectOutputs, requests: renderRequests, pack: renderTeamPack })[groupTab](panel, group);
       return;
     }
     selectedGroup = null;
@@ -308,7 +509,7 @@ function renderGroups(view) {
   }
   view.append(el('div', { class: 'grid' }, state.groups.map(group => {
     const people = peopleFor(group.member_ids);
-    return el('article', { class: 'group-card' }, el('div', { class: 'card-top' }, tag('Local working group'), people.length > 0 && people.every(p => p.demo) && tag('Demo', true)), el('h3', {}, group.name), el('p', {}, group.description), el('div', { class: 'avatars' }, people.slice(0, 5).map(p => avatar(p))), el('div', { class: 'work-count' }, `${people.length} members · ${groupWorks(state, group.member_ids).length} unique outputs`), el('div', { class: 'card-actions' }, button('Open group →', () => { selectedGroup = group.id; editorGroup = undefined; search = ''; render(); }, 'quiet small'), button('Edit', () => { editorGroup = group; render(); }, 'quiet small')));
+    return el('article', { class: 'group-card' }, el('div', { class: 'card-top' }, tag('Local working group'), people.length > 0 && people.every(p => p.demo) && tag('Demo', true)), el('h3', {}, group.name), el('p', {}, group.description), el('div', { class: 'avatars' }, people.slice(0, 5).map(p => avatar(p))), el('div', { class: 'work-count' }, `${people.length} members · ${(group.selected_work_ids || []).length} project outputs · ${groupWorks(state, group.member_ids).length} member outputs`), el('div', { class: 'card-actions' }, button('Open group →', () => { editorGroup = undefined; location.hash = `groups/${encodeURIComponent(group.id)}`; }, 'quiet small'), button('Edit', () => { editorGroup = group; render(); }, 'quiet small')));
   })));
 }
 
@@ -345,19 +546,32 @@ function render() {
   const view = document.querySelector('#view');
   view.replaceChildren();
   ({ feed: renderFeed, people: renderPeople, groups: renderGroups, saved: renderSaved })[currentView](view);
+  if (bulkRunning && activeBulkGroup) {
+    const draft = groupDrafts.get(activeBulkGroup);
+    const node = document.querySelector('#notice');
+    node.hidden = false; node.className = 'notice';
+    node.replaceChildren(document.createTextNode(draft.cancel ? 'Stopping after the current record… ' : 'Importing public records one at a time… '),
+      el('a', { href: `#groups/${encodeURIComponent(activeBulkGroup)}` }, 'View group'),
+      button('Stop after current record', () => { draft.cancel = true; render(); }, 'quiet', { disabled: draft.cancel }));
+  }
 }
 
 function navigate(view) {
   if (currentView === view) render();
-  else location.hash = view;
+  else { pendingCreateGroup = view === 'groups' && editorGroup === null; location.hash = view; }
 }
 
 async function initialize() {
-  currentView = headings[location.hash.slice(1)] ? location.hash.slice(1) : 'feed';
+  const route = groupRoute(location.hash);
+  currentView = route.view; selectedGroup = route.id;
   window.addEventListener('hashchange', () => {
-    currentView = headings[location.hash.slice(1)] ? location.hash.slice(1) : 'feed';
+    const route = groupRoute(location.hash);
+    currentView = route.view;
     selectedPerson = null;
-    selectedGroup = null;
+    selectedGroup = route.id;
+    groupTab = 'roster';
+    editorGroup = pendingCreateGroup ? null : undefined;
+    pendingCreateGroup = false;
     search = '';
     render();
   });

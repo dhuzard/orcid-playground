@@ -8,7 +8,7 @@ import re
 import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from .core import OrcidError, build_biosketch, fetch_orcid_record, normalize_orcid
 from .network_store import NetworkStore
@@ -119,7 +119,15 @@ class PilotHandler(BaseHTTPRequestHandler):
             if path == "/api/state":
                 self.send_payload(200, self.server.store.state())
             elif match := re.fullmatch(r"/api/groups/([a-zA-Z0-9_-]+)/export", path):
-                data = self.server.store.export_group(match.group(1))
+                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
+                if set(query) - {"scope", "from", "to", "members"} or any(len(values) != 1 for values in query.values()):
+                    raise ValueError("Unsupported or repeated export options.")
+                options = {key: values[0] for key, values in query.items()}
+                data = self.server.store.export_group(
+                    match.group(1), scope=options.get("scope", "members"),
+                    date_from=options.get("from", ""), date_to=options.get("to", ""),
+                    member_ids=options["members"].split(",") if "members" in options else None,
+                )
                 self.send_payload(200, data, "application/zip", filename="team-pack.zip")
             elif path in ASSETS:
                 name, mime = ASSETS[path]
@@ -178,6 +186,24 @@ class PilotHandler(BaseHTTPRequestHandler):
                     if not isinstance(payload.get("id"), str):
                         raise ValueError("A group id is required.")
                     store.update_group(payload["id"], *args)
+            elif path in ("/api/groups/members/add", "/api/groups/member", "/api/groups/output",
+                          "/api/groups/requests", "/api/groups/requests/update"):
+                group_id = payload.get("id")
+                if not isinstance(group_id, str):
+                    raise ValueError("A group id is required.")
+                if path == "/api/groups/members/add":
+                    store.add_group_members(group_id, payload.get("member_ids"))
+                elif path == "/api/groups/member":
+                    store.set_group_member(group_id, payload.get("person_id"),
+                                           payload.get("role", ""), payload.get("expertise", ""),
+                                           payload.get("contribution", ""))
+                elif path == "/api/groups/output":
+                    store.select_group_work(group_id, payload.get("work_id"), payload.get("selected"))
+                elif path == "/api/groups/requests":
+                    store.create_group_request(group_id, payload.get("title"), payload.get("description", ""),
+                                               payload.get("owner_id"), payload.get("due_date", ""))
+                else:
+                    store.set_group_request_status(group_id, payload.get("request_id"), payload.get("status"))
             else:
                 self.send_payload(404, {"error": "Not found."})
                 return

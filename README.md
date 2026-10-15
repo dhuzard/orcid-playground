@@ -1,4 +1,7 @@
-# ORCID Biosketch
+# ORCID Playground
+
+Tools for reusing public ORCID records in biosketches and a local research network.
+The Python package and CLI names remain `orcid_biosketch` and `orcid-biosketch`.
 
 Generate a researcher-controlled, provenance-aware biosketch from a public ORCID record. The tool creates stable JSON, Schema.org JSON-LD and Markdown outputs that can be consumed by personal websites, institutional profiles and research agents.
 
@@ -32,7 +35,11 @@ to skip those detail requests when a faster summary is sufficient.
 An early pilot adds **Feed, People, Groups, and Saved** to the biosketch tools.
 Follow public ORCID records, save outputs, curate a working-group roster, and
 download a team pack. Implementation and review are tracked in
-[epic #6](https://github.com/dhuzard/orcid-biosketch/issues/6).
+[epic #6](https://github.com/dhuzard/orcid-playground/issues/6).
+The local working-group milestone is ready for coordinator testing in
+[issue #8](https://github.com/dhuzard/orcid-playground/issues/8): bulk roster
+import, local roles and contributions, selected project outputs, collaboration
+requests, and team packs scoped by members and publication dates.
 
 ```bash
 python -m pip install -e .
@@ -48,8 +55,10 @@ The `orcid-network` command is an alias for the module command above.
 
 This pilot is a single local workspace. It has no OAuth sign-in, shared accounts,
 invitations, or automatic monitoring. Group rosters are locally curated and do
-not establish confirmed membership; exports collect member outputs without
-claiming project attribution. See the [five-minute test and pilot limits](docs/network-pilot.md).
+not establish confirmed membership. Project selections and member details record
+local decisions, while public-record outputs remain attributable to their
+sources. Exports describe their scope and do not establish confirmed project
+attribution. See the [five-minute group test and pilot limits](docs/network-pilot.md).
 
 ## Commands
 
@@ -134,9 +143,9 @@ arrangement must be resolved before expanding it into a research network.
 Load the web component and point it to any published `biosketch.json`:
 
 ```html
-<script type="module" src="https://cdn.jsdelivr.net/gh/dhuzard/orcid-biosketch@main/web/orcid-biosketch.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/gh/dhuzard/orcid-playground@main/web/orcid-biosketch.js"></script>
 <orcid-biosketch
-  src="https://raw.githubusercontent.com/dhuzard/orcid-biosketch/main/generated/biosketch.json"
+  src="https://raw.githubusercontent.com/dhuzard/orcid-playground/main/generated/biosketch.json"
   bio="true"
   works="all"
   search="true"
