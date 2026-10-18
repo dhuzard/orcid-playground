@@ -144,6 +144,14 @@ Pass a JSON document with `--config`. It is recursively merged onto the normaliz
 - ORCID is not a complete CV. Software, supervision, project narratives and selected-output policies usually require researcher-controlled additions.
 - The generated timestamp reflects ORCID's record modification time, so identical source records produce identical outputs.
 
+## Working-group roster export
+
+`orcid_biosketch.roster` exports a local working group as an opt-in, private,
+digest-sealed list of asserted identifiers for research workspaces such as
+ORAtlas. It never grants access, confirms an invitation or infers a CRediT
+role, and it is never part of the public outputs. See
+[docs/roster-assertions.md](docs/roster-assertions.md).
+
 ## Development
 
 ```bash

@@ -1,0 +1,65 @@
+{
+  "export_id": "roster:grp-synthetic-demo:20261001090000",
+  "digest": "06440837ab6e3902f746a9af67f8dfd2209290fa2476c6d443c7353dee4dba75",
+  "access_effect": {
+    "grants": "none",
+    "invitations": "none",
+    "accounts": "none",
+    "authorship": "not-implied",
+    "credit": "not-inferred"
+  },
+  "grants": [],
+  "invitations": [],
+  "accounts": [],
+  "candidates": [
+    {
+      "member_key": "m-a",
+      "orcid": "0000-0002-1825-0097",
+      "orcid_status": "claimed",
+      "display_name": null,
+      "membership_status": "listed-member",
+      "requires": [
+        "authenticated-local-account",
+        "project-controller-approved-invitation"
+      ]
+    },
+    {
+      "member_key": "m-b",
+      "orcid": "0000-0001-5109-3700",
+      "orcid_status": "claimed",
+      "display_name": null,
+      "membership_status": "listed-member",
+      "requires": [
+        "authenticated-local-account",
+        "project-controller-approved-invitation"
+      ]
+    },
+    {
+      "member_key": "m-d",
+      "orcid": null,
+      "orcid_status": null,
+      "display_name": null,
+      "membership_status": "listed-member",
+      "requires": [
+        "authenticated-local-account",
+        "project-controller-approved-invitation"
+      ]
+    }
+  ],
+  "credit_claims": [
+    {
+      "member_key": "m-a",
+      "output_key": "o-1",
+      "credit_role": "conceptualization",
+      "status": "curator-confirmed",
+      "confirmed_by_import": false
+    },
+    {
+      "member_key": "m-b",
+      "output_key": "o-1",
+      "credit_role": "software",
+      "status": "source-declared",
+      "confirmed_by_import": false
+    }
+  ]
+}

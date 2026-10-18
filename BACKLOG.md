@@ -56,6 +56,7 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | FUN-07 | Collaborator distance | P3 | deferred | — |
 | FUN-08 | Deterministic career poster | P3 | deferred | — |
 | FUN-09 | Academic family tree | P3 | deferred | — |
+| KF-12 | Roster assertion export contract (#9) | P1 | in-review | session |
 
 ---
 
@@ -513,6 +514,36 @@ but rejected by the CLI, and missing affiliation dates are rendered as
 
 ---
 
+## KF-12 — Roster assertion export contract
+
+- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Files** `schema/roster-assertion.schema.json`, `src/orcid_biosketch/roster.py`,
+  `tests/test_roster.py`, `tests/fixtures/roster/`, `docs/roster-assertions.md`
+
+Issue #9, coordinated with dhuzard/oratlas#207. A researcher-controlled, opt-in
+export of a local working group as asserted identifiers for ORAtlas and
+Diggypaper. It is inert: an ORCID iD, roster entry or recorded contribution
+never grants access, confirms an invitation, implies authorship or confirms a
+CRediT role. Wiring it into private production workflows waits for
+dhuzard/oratlas#202.
+
+**Acceptance criteria**
+- [x] Versioned JSON Schema with fixed `access_effect`, consent, redaction and digest.
+- [x] Public-record, curator and external-verified assertions, claimed vs OAuth-verified
+      iDs and listed vs verified membership stay distinct; an offline roster cannot
+      claim the verified forms.
+- [x] CRediT roles only `source-declared` (with reference) or `curator-confirmed`; never inferred.
+- [x] Private members, unselected or unsupported-rights outputs and unapproved project
+      URLs are excluded; only the iD is shared by default.
+- [x] Revocation yields a content-free notice; deterministic SHA-256 digest.
+- [x] Synthetic demo export and its expected consumer reading, with tests for forged and
+      checksum-invalid iDs, private members, revoked consent, duplicates, unverified
+      entries, unsupported rights and selective export.
+- [ ] Adapter from the network pilot workspace (PR #7) to the builder input.
+- [ ] Integration into private workflows, after dhuzard/oratlas#202 is approved.
+
+---
+
 ## Change log
 
 Append-only. Newest entries at the bottom. One line per status or scope change.
@@ -562,3 +593,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-09-01 | KF-02 | Preferred funding details fetched and live-verified at `57000.0 EUR`; work authors and graceful fallbacks retained | in-progress → done |
 | 2026-09-01 | INF-03 | Live `funding-summary` and full funding response shapes verified; remaining uncommon activity shapes stay open | planned → in-progress |
 | 2026-09-01 | INF-04 | Published outputs regenerated at schema 0.2.0 and playful website artifacts added to daily sync | planned → done |
+| 2026-10-18 | KF-12 | Roster assertion contract, fixtures and tests opened for #9 | — → in-review |

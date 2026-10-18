@@ -1,0 +1,122 @@
+{
+  "_comment": "Synthetic working group. People are invented; ORCID iDs are the documented example/test iDs from ORCID's own documentation; DOIs use Crossref's 10.5555 test prefix. No real person, email or credential appears here.",
+  "local_id": "grp-synthetic-demo",
+  "name": "Synthetic demo working group",
+  "created_by": "m-a",
+  "created_at": "2026-09-01T09:00:00Z",
+  "updated_at": "2026-10-01T09:00:00Z",
+  "consent": {
+    "status": "granted",
+    "granted_at": "2026-10-01T08:55:00Z",
+    "granted_by": "m-a",
+    "revoked_at": null
+  },
+  "members": [
+    {
+      "key": "m-a",
+      "display_name": "Synthetic Researcher A",
+      "orcid": "https://orcid.org/0000-0002-1825-0097",
+      "visibility": "listed",
+      "local_role": "Coordinator",
+      "added_at": "2026-09-01T09:00:00Z",
+      "person_source": {
+        "basis": "public-orcid-record",
+        "asserted_at": "2026-09-01T09:01:00Z",
+        "source_record_version": "2026-08-30T10:00:00Z"
+      }
+    },
+    {
+      "key": "m-b",
+      "display_name": "Synthetic Researcher B",
+      "orcid": "0000-0001-5109-3700",
+      "visibility": "listed",
+      "local_role": "Analyst",
+      "added_at": "2026-09-02T09:00:00Z"
+    },
+    {
+      "key": "m-c",
+      "display_name": "Synthetic Researcher C",
+      "orcid": "0000-0002-1694-233X",
+      "visibility": "private",
+      "local_role": "Advisor",
+      "added_at": "2026-09-03T09:00:00Z"
+    },
+    {
+      "key": "m-d",
+      "display_name": "Synthetic Researcher D",
+      "orcid": null,
+      "visibility": "listed",
+      "local_role": null,
+      "added_at": "2026-09-04T09:00:00Z"
+    }
+  ],
+  "outputs": [
+    {
+      "key": "o-1",
+      "title": "Synthetic demo output one",
+      "doi": "10.5555/roster-demo-1",
+      "source_rights": "public-orcid-record",
+      "selected": true,
+      "asserted_at": "2026-09-05T09:00:00Z",
+      "source_record_version": "2026-08-30T10:00:00Z"
+    },
+    {
+      "key": "o-2",
+      "title": "Synthetic demo output two",
+      "doi": "10.5555/roster-demo-2",
+      "source_rights": "owner-provided",
+      "selected": true,
+      "asserted_at": "2026-09-06T09:00:00Z"
+    },
+    {
+      "key": "o-3",
+      "title": "Synthetic unselected output",
+      "doi": "10.5555/roster-demo-3",
+      "source_rights": "public-orcid-record",
+      "selected": false
+    },
+    {
+      "key": "o-4",
+      "title": "Synthetic output with unsupported reuse rights",
+      "doi": "10.5555/roster-demo-4",
+      "source_rights": "third-party-private",
+      "selected": true
+    }
+  ],
+  "contributions": [
+    {
+      "member": "m-a",
+      "output": "o-1",
+      "credit_role": "conceptualization",
+      "status": "curator-confirmed",
+      "asserted_by": "m-a",
+      "asserted_at": "2026-09-07T09:00:00Z"
+    },
+    {
+      "member": "m-b",
+      "output": "o-1",
+      "credit_role": "software",
+      "status": "source-declared",
+      "asserted_at": "2026-09-07T09:05:00Z",
+      "reference": "https://doi.org/10.5555/roster-demo-1#author-contributions"
+    },
+    {
+      "member": "m-c",
+      "output": "o-2",
+      "credit_role": "formal-analysis",
+      "status": "curator-confirmed",
+      "asserted_by": "m-a",
+      "asserted_at": "2026-09-07T09:10:00Z"
+    }
+  ],
+  "project_references": [
+    {
+      "provider": "oratlas",
+      "identifier": "synthetic-project-1",
+      "declared_visibility": "private",
+      "sharing_approved": false,
+      "url": "https://example.org/private/synthetic-project-1",
+      "asserted_at": "2026-09-08T09:00:00Z"
+    }
+  ]
+}
