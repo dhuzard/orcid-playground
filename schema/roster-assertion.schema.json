@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dhuzard/orcid-playground/raw/main/schema/roster-assertion.schema.json",
+  "title": "ORCID Playground researcher and group-roster assertions",
+  "description": "A researcher-controlled, opt-in export of asserted identifiers for a local working group. Every value is an assertion with provenance. Nothing in this document grants access, confirms an invitation, implies authorship or confirms a CRediT role.",
+  "type": "object",
+  "required": [
+    "schema", "schema_version", "export_id", "generated_at", "origin", "distribution",
+    "access_effect", "consent", "redaction", "group", "members", "outputs",
+    "contributions", "project_references", "digest"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {"const": "orcid-playground/roster-assertion"},
+    "schema_version": {"const": "0.1.0"},
+    "export_id": {"$ref": "#/$defs/key"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "origin": {
+      "description": "local-offline-roster: curated in a local workspace, so no invitation or ORCID OAuth was observed. external-platform: reserved for a future shared service that actually performed those checks.",
+      "enum": ["local-offline-roster", "external-platform"]
+    },
+    "distribution": {
+      "description": "Roster exports are never public. They go to one recipient chosen by the exporter.",
+      "const": "private-recipient-only"
+    },
+    "access_effect": {
+      "description": "Fixed statement of what importing this document does: nothing beyond proposing candidate contacts.",
+      "type": "object",
+      "required": ["grants", "invitations", "accounts", "authorship", "credit"],
+      "additionalProperties": false,
+      "properties": {
+        "grants": {"const": "none"},
+        "invitations": {"const": "none"},
+        "accounts": {"const": "none"},
+        "authorship": {"const": "not-implied"},
+        "credit": {"const": "not-inferred"}
+      }
+    },
+    "consent": {
+      "type": "object",
+      "required": ["status", "scope", "method", "granted_at", "granted_by", "revoked_at"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["granted", "revoked"]},
+        "scope": {"const": "roster-export"},
+        "method": {"const": "local-explicit-opt-in"},
+        "granted_at": {"type": "string", "format": "date-time"},
+        "granted_by": {"$ref": "#/$defs/key"},
+        "revoked_at": {"anyOf": [{"type": "null"}, {"type": "string", "format": "date-time"}]}
+      }
+    },
+    "redaction": {
+      "type": "object",
+      "required": ["policy", "member_fields", "private_members", "excluded_outputs", "project_references"],
+      "additionalProperties": false,
+      "properties": {
+        "policy": {"const": "default-private"},
+        "member_fields": {
+          "description": "Optional member fields the exporter chose to include. Anything not listed is null in every member.",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["orcid", "display_name", "local_role"]}
+        },
+        "private_members": {
+          "description": "Members marked private never leave the workspace and are not counted.",
+          "const": "omitted"
+        },
+        "excluded_outputs": {
+          "description": "Reason codes for outputs dropped from the export; no titles or identifiers.",
+          "type": "array",
+          "items": {"enum": ["unsupported-source-rights", "not-selected"]}
+        },
+        "project_references": {"enum": ["omitted", "included"]}
+      }
+    },
+    "group": {
+      "type": "object",
+      "required": ["local_id", "name", "created_by", "assertion"],
+      "additionalProperties": false,
+      "properties": {
+        "local_id": {"$ref": "#/$defs/key"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 300},
+        "created_by": {"$ref": "#/$defs/key"},
+        "assertion": {"$ref": "#/$defs/assertion"}
+      }
+    },
+    "members": {"type": "array", "maxItems": 500, "items": {"$ref": "#/$defs/member"}},
+    "outputs": {"type": "array", "maxItems": 2000, "items": {"$ref": "#/$defs/output"}},
+    "contributions": {"type": "array", "maxItems": 5000, "items": {"$ref": "#/$defs/contribution"}},
+    "project_references": {"type": "array", "maxItems": 50, "items": {"$ref": "#/$defs/projectReference"}},
+    "digest": {
+      "description": "SHA-256 of the canonical JSON (sorted keys, no insignificant whitespace, UTF-8) of this document without the digest member.",
+      "type": "object",
+      "required": ["algorithm", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {"const": "sha256"},
+        "value": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  },
+  "$defs": {
+    "key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "orcid": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$"},
+    "assertion": {
+      "description": "Who said this, how, when, and on what evidence.",
+      "type": "object",
+      "required": ["basis", "method", "asserted_at", "asserted_by", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "basis": {"enum": ["public-orcid-record", "owner-curated", "external-verified"]},
+        "method": {"type": "string", "minLength": 1, "maxLength": 200},
+        "asserted_at": {"type": "string", "format": "date-time"},
+        "asserted_by": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/key"}]},
+        "evidence": {
+          "type": "object",
+          "required": ["source_record_version", "reference"],
+          "additionalProperties": false,
+          "properties": {
+            "source_record_version": {"type": ["string", "null"], "maxLength": 200},
+            "reference": {"type": ["string", "null"], "maxLength": 500}
+          }
+        }
+      }
+    },
+    "member": {
+      "type": "object",
+      "required": ["member_key", "display_name", "orcid", "local_role", "membership", "person_assertion"],
+      "additionalProperties": false,
+      "properties": {
+        "member_key": {"$ref": "#/$defs/key"},
+        "display_name": {"type": ["string", "null"], "maxLength": 300},
+        "orcid": {
+          "anyOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["id", "uri", "status", "assertion"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {"$ref": "#/$defs/orcid"},
+                "uri": {"type": "string", "pattern": "^https://(sandbox\\.)?orcid\\.org/[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$"},
+                "status": {
+                  "description": "claimed: typed or imported, never authenticated. oauth-verified: the holder authenticated with ORCID OAuth on an external platform.",
+                  "enum": ["claimed", "oauth-verified"]
+                },
+                "assertion": {"$ref": "#/$defs/assertion"}
+              }
+            }
+          ]
+        },
+        "local_role": {
+          "description": "Free-text role label in the local group. Never a CRediT role and never an access role.",
+          "type": ["string", "null"],
+          "maxLength": 200
+        },
+        "membership": {
+          "type": "object",
+          "required": ["status", "assertion"],
+          "additionalProperties": false,
+          "properties": {
+            "status": {"enum": ["listed-member", "verified-invitation-accepted", "active-member-per-source"]},
+            "assertion": {"$ref": "#/$defs/assertion"}
+          }
+        },
+        "person_assertion": {"$ref": "#/$defs/assertion"}
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["output_key", "title", "identifiers", "source_rights", "assertion"],
+      "additionalProperties": false,
+      "properties": {
+        "output_key": {"$ref": "#/$defs/key"},
+        "title": {"type": ["string", "null"], "maxLength": 1000},
+        "identifiers": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "doi": {"type": "string", "pattern": "^10\\.[0-9]{4,9}/\\S+$"}
+          }
+        },
+        "source_rights": {"enum": ["public-orcid-record", "owner-provided"]},
+        "assertion": {"$ref": "#/$defs/assertion"}
+      }
+    },
+    "contribution": {
+      "description": "A CRediT role for one member on one selected output. Only ever source-declared or explicitly confirmed by the curator; never inferred.",
+      "type": "object",
+      "required": ["member_key", "output_key", "credit_role", "status", "assertion"],
+      "additionalProperties": false,
+      "properties": {
+        "member_key": {"$ref": "#/$defs/key"},
+        "output_key": {"$ref": "#/$defs/key"},
+        "credit_role": {
+          "enum": [
+            "conceptualization", "data-curation", "formal-analysis", "funding-acquisition",
+            "investigation", "methodology", "project-administration", "resources", "software",
+            "supervision", "validation", "visualization", "writing-original-draft",
+            "writing-review-editing"
+          ]
+        },
+        "status": {"enum": ["source-declared", "curator-confirmed"]},
+        "assertion": {"$ref": "#/$defs/assertion"}
+      }
+    },
+    "projectReference": {
+      "type": "object",
+      "required": ["provider", "identifier", "status", "declared_visibility", "sharing_approved", "url", "assertion"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": {"type": "string", "minLength": 1, "maxLength": 100},
+        "identifier": {"type": "string", "minLength": 1, "maxLength": 300},
+        "status": {"const": "proposed"},
+        "declared_visibility": {"enum": ["public", "private"]},
+        "sharing_approved": {"type": "boolean"},
+        "url": {"anyOf": [{"type": "null"}, {"type": "string", "format": "uri", "pattern": "^https://"}]},
+        "assertion": {"$ref": "#/$defs/assertion"}
+      }
+    }
+  }
+}
