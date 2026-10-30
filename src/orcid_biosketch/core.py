@@ -563,10 +563,19 @@ def render_markdown(bio: dict[str, Any], max_works: int = 10) -> str:
         lines.append("")
     for heading, key, ongoing in (
         ("Distinctions", "distinctions", False),
+        ("Qualifications", "qualifications", False),
+        ("Invited positions", "invited_positions", False),
         ("Memberships", "memberships", True),
         ("Service", "services", True),
     ):
         if bio.get(key):
             lines.extend([f"## {heading}", "", *_affiliation_lines(bio[key], ongoing), ""])
+    if bio.get("research_resources"):
+        lines.extend(["## Research resources", ""])
+        for item in bio["research_resources"]:
+            hosts = f", {', '.join(item['hosts'])}" if item.get("hosts") else ""
+            period = _period(item, False)
+            lines.append(f"- **{item['title'] or 'Resource'}**{hosts}" + (f" ({period})" if period else ""))
+        lines.append("")
     lines.append(f"_Generated from ORCID; synchronized {bio['provenance']['generated_at']}._")
     return "\n".join(lines) + "\n"

@@ -522,3 +522,12 @@ def test_affiliations_carry_the_disambiguated_organization_id():
     employment = build_biosketch(record)["employment"][0]
     assert employment["organization_id"] == "https://ror.org/019whta54"
     assert employment["organization_id_source"] == "ROR"
+
+
+def test_markdown_renders_qualifications_invited_positions_and_resources():
+    bio = build_biosketch(fixture(), {})
+    markdown = render_markdown(bio)
+    for heading in ("## Qualifications", "## Invited positions", "## Research resources"):
+        assert heading in markdown
+    assert "Université de Lausanne" in markdown
+    assert "Visiting researcher" in markdown
