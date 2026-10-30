@@ -15,5 +15,5 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: pytest -q
-      - run: node --test web/orcid-biosketch.test.mjs
+      - run: node --test web/orcid-biosketch.test.mjs web/network/app.test.mjs
 
