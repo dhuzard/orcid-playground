@@ -483,7 +483,7 @@ function renderGroups(view) {
     const group = state.groups.find(g => g.id === selectedGroup);
     if (group) {
       view.append(button('← All groups', () => { editorGroup = undefined; location.hash = 'groups'; }, 'quiet back'),
-        el('div', { class: 'group-title' }, el('div', {}, el('h2', {}, group.name), el('p', { class: 'helper' }, group.description)), button('Edit group & roster', () => { editorGroup = group; render(); }, 'quiet small')),
+        el('div', { class: 'group-title' }, el('div', {}, el('h2', {}, group.name), el('p', { class: 'helper' }, group.description)), el('div', { class: 'card-actions' }, document.documentElement.dataset.hosted === 'true' && el('a', { class: 'button quiet small', href: `/group/?from=${encodeURIComponent(group.id)}` }, 'Share & visualise →'), button('Edit group & roster', () => { editorGroup = group; render(); }, 'quiet small'))),
         el('p', { class: 'helper' }, `${group.member_ids.length} members · Locally curated group. Membership and project attribution have not been confirmed by researchers.`));
       const labels = [['roster', 'Roster'], ['outputs', 'Project outputs'], ['requests', 'Requests'], ['pack', 'Team pack']];
       const tabs = el('div', { class: 'group-tabs', role: 'tablist', 'aria-label': 'Group sections' }, labels.map(([id, label], index) => button(label, () => {

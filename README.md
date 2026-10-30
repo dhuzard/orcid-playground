@@ -40,9 +40,12 @@ The playground runs everything in the visitor's browser: try it at
   BibTeX/RIS/CSL/JSON-LD downloads.
 - **Research network** (`/network/`): the pilot below, with its workspace stored
   only in that browser.
+- **Group view** (`/group/`): a shareable link of public ORCID iDs that shows who
+  has published together, linking members only through DOIs both records assert.
 
-The package runs under [Pyodide](https://pyodide.org) in a Web Worker and reads
-only the public ORCID API; the site has no server-side code. Build it with
+The package runs under [Pyodide](https://pyodide.org), served from the site with
+pinned hashes, in a Web Worker and reads only the public ORCID API; the site has
+no server-side code. Build it with
 `python scripts/build_site.py site`. Hosting and sign-in setup are in
 [docs/gcp-hosting.md](docs/gcp-hosting.md).
 

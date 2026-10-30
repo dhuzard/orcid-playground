@@ -7,21 +7,63 @@ or token can, and nothing is stored server side.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
 import sys
+import urllib.request
 import zipfile
 from pathlib import Path
+from typing import Callable
 
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_SUFFIXES = {".json", ".jsonld", ".md", ".svg", ".txt"}
-PLAYGROUND = ("index.html", "playground.css", "studio.js", "auth.js", "engine.js", "engine-client.js", "network-bridge.js")
+PLAYGROUND = ("index.html", "playground.css", "studio.js", "auth.js", "engine.js", "engine-client.js", "network-bridge.js",
+              "group.js", "group-link.js")
 # Fixed timestamp so the same source always produces the same archive.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 
+# The Python runtime is served from this site, never a CDN at run time. Each file
+# is checked against a pinned SHA-256 when the site is built; Pyodide checks the
+# packages it loads against pyodide-lock.json, which is pinned here too.
+PYODIDE_VERSION = "0.26.4"
+PYODIDE_SOURCE = f"https://cdn.jsdelivr.net/pyodide/v{PYODIDE_VERSION}/full/"
+PYODIDE_FILES = {
+    "pyodide.js": "c0069107621d5b942a659e737a12e774cc0451feaa2256f475d72e071d844ec7",
+    "pyodide.asm.js": "919560652ed3dad3707cb3a394785da1e046fb13dc0defa162058ff230cb7eed",
+    "pyodide.asm.wasm": "b7e66a19427a55010ac3367c1b6c64b893f9826f783412945fdf0c3337f3bc94",
+    "python_stdlib.zip": "72894522b791858b9d613ac786b951d8b5094035dcf376313ea24a466810f336",
+    "pyodide-lock.json": "cd50b49de944c579045e122fe8628b31f9ce446379f032f36c05e273d38766e0",
+    "sqlite3-1.0.0.zip": "e05c4defc15eac256607c87c3533af267fc072f3a1749a4f6b8bfe074e1be7f6",
+}
+RUNTIME_CACHE = ROOT / ".cache" / f"pyodide-{PYODIDE_VERSION}"
+
+
+def _download(url: str) -> bytes:
+    with urllib.request.urlopen(url, timeout=120) as response:
+        return response.read()
+
+
+def fetch_runtime(out: Path, *, cache: Path = RUNTIME_CACHE, download: Callable[[str], bytes] = _download) -> list[str]:
+    """Copy the pinned Pyodide runtime into ``out``, refusing any file whose hash differs."""
+    target = out / "pyodide" / PYODIDE_VERSION
+    target.mkdir(parents=True, exist_ok=True)
+    cache.mkdir(parents=True, exist_ok=True)
+    for name, expected in PYODIDE_FILES.items():
+        cached = cache / name
+        data = cached.read_bytes() if cached.is_file() else download(PYODIDE_SOURCE + name)
+        if hashlib.sha256(data).hexdigest() != expected:
+            cached.unlink(missing_ok=True)
+            raise ValueError(f"Pyodide file {name} does not match its pinned SHA-256; refusing to publish it")
+        cached.write_bytes(data)
+        (target / name).write_bytes(data)
+    return [f"pyodide/{PYODIDE_VERSION}/{name}" for name in PYODIDE_FILES]
+
+
 # The pilot page as served by the hosted site: same app, browser-held workspace.
 NETWORK_PAGE = [
+    ('<html lang="en">', '<html lang="en" data-hosted="true">'),
     ('href="/style.css"', 'href="/network/style.css"'),
     ('<script type="module" src="/app.js"></script>',
      '<script type="module" src="/network-bridge.js"></script>\n  <script type="module" src="/network/app.js"></script>'),
@@ -56,7 +98,7 @@ def network_page(root: Path = ROOT) -> str:
 def build(out: Path, root: Path = ROOT, *, client_id: str | None = None) -> list[str]:
     if out.exists():
         shutil.rmtree(out)
-    for folder in ("generated", "network", "py"):
+    for folder in ("generated", "network", "py", "group"):
         (out / folder).mkdir(parents=True)
     copied = []
     for source in sorted((root / "generated").iterdir()):
@@ -69,15 +111,16 @@ def build(out: Path, root: Path = ROOT, *, client_id: str | None = None) -> list
     for name in ("app.js", "style.css"):
         shutil.copy2(root / "web" / "network" / name, out / "network" / name)
     (out / "network" / "index.html").write_text(network_page(root), encoding="utf-8")
+    shutil.copy2(root / "web" / "playground" / "group.html", out / "group" / "index.html")
     package_archive(out / "py" / "orcid_biosketch.zip", root)
     # The ORCID client id of a public OAuth client is not a secret; empty hides sign-in.
     client_id = os.environ.get("ORCID_CLIENT_ID", "") if client_id is None else client_id
     (out / "config.json").write_text(json.dumps({"orcid_client_id": client_id.strip()}) + "\n", encoding="utf-8")
     return copied + [*PLAYGROUND, "orcid-biosketch.js", "network/app.js", "network/style.css",
-                     "network/index.html", "py/orcid_biosketch.zip", "config.json"]
+                     "network/index.html", "group/index.html", "py/orcid_biosketch.zip", "config.json"]
 
 
 if __name__ == "__main__":
     target = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "site"
-    for name in build(target):
+    for name in build(target) + fetch_runtime(target):
         print(name)

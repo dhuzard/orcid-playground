@@ -8,7 +8,8 @@ A static site whose code runs in the visitor's browser:
 
 - `/` **Studio**: any public ORCID iD, the stored sample, or the signed-in visitor's own record, rendered into every single-record output.
 - `/network/` **Research network**: the unchanged pilot app (`web/network/app.js`). `network-bridge.js` answers its `/api/*` calls from the in-browser engine instead of a server.
-- `engine.js` is a Web Worker that loads Pyodide from jsDelivr and the package from `py/orcid_biosketch.zip`. It patches `urllib` with a synchronous XHR restricted to `pub.orcid.org`, so `fetch_orcid_record` runs unchanged (`orcid_biosketch.playground`).
+- `/group/` **Group view**: a link carrying a group name and public ORCID iDs in the URL fragment, which is never sent to a server. It is read only on request and shows an evidence-backed collaboration graph (an edge exists only when both records assert the same DOI), shared outputs, a group heatmap and a merged bibliography. The network app's "Share & visualise" builds such a link from a group's real iDs; sample people are never included.
+- `engine.js` is a Web Worker that loads Pyodide from this site (`/pyodide/0.26.4/`, each file checked against a pinned SHA-256 by `scripts/build_site.py`) and the package from `py/orcid_biosketch.zip`. It patches `urllib` with a synchronous XHR restricted to `pub.orcid.org`, so `fetch_orcid_record` runs unchanged (`orcid_biosketch.playground`).
 - The network workspace is the pilot's SQLite file on an IndexedDB-backed filesystem. It never leaves that browser, and each visitor has their own; "Clear this workspace" deletes it.
 
 What may be hosted, and what may not:
@@ -16,7 +17,7 @@ What may be hosted, and what may not:
 - Hosted: public `generated/*` outputs, the web pages and the package source. `scripts/build_site.py` copies nothing else.
 - Never hosted: a server-side workspace or the loopback server itself. It has no authentication, and a shared copy would publish curated rosters (issues #6, #8, #9). The same goes for roster exports (`orcid_biosketch.roster`) and any ORCID token; public reads need none.
 
-The CSP allows only `self`, Pyodide on jsDelivr, `pub.orcid.org` and ORCID's JWKS, plus `wasm-unsafe-eval`; `unsafe-eval` is not needed. Generated SVGs contain untrusted ORCID text, so they are shown through `<img>` with blob URLs and never inlined.
+The CSP allows only `self`, `pub.orcid.org` and ORCID's JWKS, plus `wasm-unsafe-eval`; `unsafe-eval` is not needed and no third-party script runs. Generated SVGs contain untrusted ORCID text, so they are shown through `<img>` with blob URLs and never inlined.
 
 ## Sign in with ORCID (optional)
 

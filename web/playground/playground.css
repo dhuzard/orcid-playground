@@ -78,6 +78,35 @@ h2{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:clamp(1
 .steps li::before{content:counter(s);position:absolute;left:14px;top:12px;width:26px;height:26px;border-radius:50%;background:var(--lime);color:var(--green);display:grid;place-items:center;font-weight:800}
 .steps b,.steps span{display:block}.steps span{font-size:.9rem;color:#c8d6cf}
 
+.small{font-size:.85rem}
+.error-text{color:var(--danger)}
+.stack{display:grid;gap:14px;max-width:640px}
+.stack label{display:grid;gap:6px;font-weight:600}
+.stack input,.stack textarea{font-weight:400;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--white);font-family:inherit}
+.stack textarea{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9rem}
+.disclosure{background:var(--soft);border-left:4px solid var(--lime);border-radius:0 12px 12px 0;padding:12px 16px;margin:12px 0}
+.disclosure p{margin:4px 0 0}
+.member-list{columns:2 260px;padding-left:20px;margin:12px 0}
+.member-list li{break-inside:avoid;margin:2px 0}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px}
+.stats div{background:var(--soft);border-radius:12px;padding:12px}
+.stats b{display:block;font-family:Georgia,serif;font-size:1.8rem;font-weight:400}
+.stats span{color:var(--muted);font-size:.85rem}
+.graph-wrap{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;align-items:start}
+.graph{width:100%;height:auto;background:var(--soft);border-radius:16px}
+.graph .edge{stroke:#7aa33b;stroke-linecap:round;cursor:pointer;opacity:.75}
+.graph .edge:hover,.graph .edge:focus{stroke:var(--green);opacity:1;outline:none}
+.graph .node circle{fill:var(--green);stroke:#fff;stroke-width:2}
+.graph .node.unlinked circle{fill:#9aa8a2}
+.graph .node text{font-size:13px;fill:var(--ink);paint-order:stroke;stroke:var(--soft);stroke-width:4px}
+.edge-detail h3{margin:0 0 8px;font-family:Georgia,serif;font-weight:400}
+.outputs{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.outputs li{border-bottom:1px solid var(--line);padding-bottom:8px;overflow-wrap:anywhere}
+.pairs{border-collapse:collapse;margin-top:16px;font-size:.9rem}
+.pairs caption{text-align:left;font-weight:600;padding-bottom:6px}
+.pairs th,.pairs td{border-bottom:1px solid var(--line);padding:6px 12px 6px 0;text-align:left}
+@media (max-width:760px){.graph-wrap{grid-template-columns:1fr}}
+
 .site-footer{max-width:1120px;margin:0 auto;padding:24px 16px 48px;font-size:.85rem;color:var(--muted);border-top:1px solid var(--line)}
 
 @media (max-width:760px){

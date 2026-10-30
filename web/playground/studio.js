@@ -98,9 +98,25 @@ const TABS = {
 function showTab(name) {
   objectUrls.forEach(URL.revokeObjectURL);
   objectUrls = [];
-  for (const button of $('#tabs').children) button.setAttribute('aria-selected', String(button.dataset.tab === name));
+  for (const button of $('#tabs').children) {
+    const selected = button.dataset.tab === name;
+    button.setAttribute('aria-selected', String(selected));
+    button.tabIndex = selected ? 0 : -1;
+    if (selected) $('#panel').setAttribute('aria-labelledby', button.id);
+  }
   $('#panel').replaceChildren(...TABS[name]());
-  $('#panel').setAttribute('aria-label', name);
+}
+
+// Arrow keys, Home and End move between tabs (WAI-ARIA tabs pattern).
+function tabKeys(event) {
+  const tabs = [...$('#tabs').children];
+  const index = tabs.indexOf(document.activeElement);
+  const target = { ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1 }[event.key];
+  if (index < 0 || target === undefined) return;
+  event.preventDefault();
+  const next = tabs[(target + tabs.length) % tabs.length];
+  next.focus();
+  showTab(next.dataset.tab);
 }
 
 function render() {
@@ -113,7 +129,7 @@ function render() {
   $('#to-network').href = `/network/?import=${encodeURIComponent(person.orcid)}`;
   const source = fromStoredCopy ? `a stored copy of the public ORCID record (synchronized ${provenance?.generated_at})` : 'the public ORCID record, read just now';
   $('#r-provenance').textContent = `Generated in your browser from ${source}. Outputs re-express asserted fields only and do not verify identity, authorship or affiliations.`;
-  $('#tabs').replaceChildren(...Object.keys(TABS).map(name => el('button', { type: 'button', role: 'tab', 'data-tab': name, onclick: () => showTab(name) }, name)));
+  $('#tabs').replaceChildren(...Object.keys(TABS).map((name, i) => el('button', { type: 'button', role: 'tab', id: `tab-${i}`, 'aria-controls': 'panel', 'data-tab': name, onclick: () => showTab(name) }, name)));
   $('#result').hidden = false;
   showTab('Profile');
 }
@@ -144,6 +160,7 @@ function explore(orcid) {
   load('profile', { orcid }, `Reading the public ORCID record for ${orcid}…`);
 }
 
+$('#tabs').addEventListener('keydown', tabKeys);
 $('#lookup').addEventListener('submit', event => {
   event.preventDefault();
   const value = $('#orcid').value.trim();
