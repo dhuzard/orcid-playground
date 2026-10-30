@@ -62,6 +62,7 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | INF-08 | Static public showcase hosted on GCP | P2 | done | session |
 | INF-10 | Hosted in-browser playground (Studio + research network) | P1 | in-review | session |
 | KF-13 | Shareable group links and evidence-backed collaboration graph (#15) | P1 | in-review | session |
+| KF-14 | Group record health and team biosketch for funders (#15 phase 2) | P1 | in-review | session |
 | INF-09 | Hosted multi-researcher service on Cloud Run | P2 | planned | — |
 
 ---
@@ -654,6 +655,25 @@ both records assert the same DOI, with those DOIs listed on the link.
 
 ---
 
+## KF-14 — Group record health and team biosketch
+
+- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Files** `src/orcid_biosketch/team.py`, `web/playground/group.js`, `tests/test_team.py`
+
+Phase 2 of issue #15, in the group view. Record health re-expresses each member's
+record check, ranks issues by how many members share them and gives the fix each
+member makes in their own ORCID record. The team biosketch nests every member's
+ERC/Horizon/NIH template under a team summary whose joint outputs are DOIs found
+in several members' records.
+
+**Acceptance criteria**
+- [x] Group score is the mean of members' record checks; issues are ranked by members affected, each with its fix (`tests/test_team.py`).
+- [x] Every record check has a plain-language label (`test_every_record_check_has_a_plain_language_label`).
+- [x] Team biosketch keeps each member's provenance line, lists only DOI-backed joint outputs and states that membership is unconfirmed.
+- [x] Both render and download in headless Chrome against live records.
+
+---
+
 ## INF-09 — Hosted multi-researcher service on Cloud Run
 
 - **Priority** P2 · **Status** planned · **Owner** — · **Rev** r1
@@ -766,3 +786,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-30 | INF-10 | Audit: deploy hardening, cross-tab workspace lock, confirmed handoffs, engine recovery, identity check | fix |
 | 2026-10-30 | INF-10 | Pyodide self-hosted with pinned hashes; Studio tabs keyboard-accessible (#14) | fix |
 | 2026-10-30 | KF-13 | Shareable group links, collaboration graph, group heatmap and bibliography (#15 phase 1) | — → in-review |
+| 2026-10-30 | KF-14 | Group record health and team biosketch in the group view (#15 phase 2) | — → in-review |

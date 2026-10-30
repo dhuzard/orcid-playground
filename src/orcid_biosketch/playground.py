@@ -17,6 +17,7 @@ from typing import Any, Callable
 
 from . import exporters, fun
 from .collaboration import collaboration_graph, group_bibliography
+from .team import group_health, render_health, team_biosketch
 from . import lint as quality
 from .core import OrcidError, build_biosketch, fetch_orcid_record, normalize_orcid, render_markdown, to_jsonld
 from .network import dispatch, import_public_record
@@ -91,12 +92,21 @@ def group(name: str, bios_text: str) -> str:
     bios = json.loads(bios_text)
     works = group_bibliography(bios)
     combined = {"person": {"name": name}, "works": works}
+    health = group_health(bios)
     return json.dumps({
+        "health": health,
+        "health_markdown": render_health(health, name),
+        "templates": exporters.available_templates(),
         "graph": collaboration_graph(bios),
         "bibliography": works,
         "heatmap_svg": fun.heatmap_svg(combined),
         "bibtex": exporters.to_bibtex(combined),
     }, ensure_ascii=False)
+
+
+def team(name: str, bios_text: str, template: str) -> str:
+    """The team biosketch in one funder format, as Markdown."""
+    return team_biosketch(json.loads(bios_text), template, name)
 
 
 def fortune(text: str, seed: int) -> str:

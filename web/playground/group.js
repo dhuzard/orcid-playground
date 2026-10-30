@@ -8,6 +8,7 @@ let group = null;
 let bios = new Map();
 let failures = new Map();
 let result = null;
+let membersJson = '[]';
 let objectUrls = [];
 
 function el(tag, attrs = {}, ...children) {
@@ -91,7 +92,8 @@ async function readMembers(ids) {
     return say('None of the records could be read; the reason is shown next to each iD.', { error: true });
   }
   try {
-    result = JSON.parse(await call('group', { name: group.name, bios: JSON.stringify(ordered) }));
+    membersJson = JSON.stringify(ordered);
+    result = JSON.parse(await call('group', { name: group.name, bios: membersJson }));
   } catch (error) {
     return say(`Could not build the group view: ${error.message}`, { error: true });
   }
@@ -157,6 +159,49 @@ const TABS = {
     if (!shared.length) return [el('p', {}, 'No output is asserted by more than one member.')];
     return [el('ul', { class: 'outputs' }, shared.map(o => el('li', {}, el('b', {}, o.title || 'Untitled'), ` ${o.year || ''} · `, doiLink(o.doi),
       el('div', { class: 'muted' }, `Asserted by ${o.members.map(nameOf).join(', ')}`))))];
+  },
+  'Record health'() {
+    const { health } = result;
+    const total = health.members.length;
+    return [
+      el('div', { class: 'health-head' }, el('div', { class: 'grade' }, health.grade, el('small', {}, `${health.score}%`)),
+        el('p', {}, health.basis, ' Fixes below are listed by how many members they affect.')),
+      el('div', { class: 'tools' }, download('Report for members (Markdown)', result.health_markdown, 'record-health.md', 'text/markdown')),
+      el('h3', {}, 'Most common issues'),
+      health.issues.length ? el('ul', { class: 'findings' }, health.issues.map(issue => el('li', {},
+        el('b', {}, `${issue.label} `, el('span', { class: 'muted' }, `· ${issue.members.length} of ${total} members · ${issue.severity}`)),
+        el('div', {}, issue.fix),
+        el('div', { class: 'muted' }, issue.members.map(m => m.name).join(', '))))) : el('p', {}, 'No issues found.'),
+      el('h3', {}, 'By member'),
+      ...health.members.map(member => el('details', { class: 'member-health' },
+        el('summary', {}, el('b', {}, member.name), ` ${member.percentage}% · grade ${member.grade} · ${member.findings.length} finding${member.findings.length === 1 ? '' : 's'}`),
+        member.findings.length ? el('ul', {}, member.findings.map(f => el('li', {}, f.message, el('div', { class: 'muted' }, `Fix: ${f.fix || ''}`)))) : el('p', {}, 'No issues found.'),
+        el('a', { href: `https://orcid.org/${member.orcid}`, target: '_blank', rel: 'noopener noreferrer' }, 'Open this ORCID record ↗'))),
+    ];
+  },
+  'Team biosketch'() {
+    const view = el('pre', {}, 'Choose a format.');
+    const tools = el('div', { class: 'tools' });
+    const picker = el('select', { 'aria-label': 'Funder format' }, result.templates.map(n => el('option', { value: n }, n.toUpperCase())));
+    const build = async () => {
+      picker.disabled = true;
+      view.textContent = 'Building…';
+      try {
+        const text = await call('team', { name: group.name, bios: membersJson, template: picker.value });
+        // Blob URLs are released on the next tab switch; revoking here could break
+        // a tab the visitor opened while this document was still building.
+        view.textContent = text;
+        tools.replaceChildren(picker, download('Markdown', text, `team-biosketch-${picker.value}.md`, 'text/markdown'));
+      } catch (error) {
+        view.textContent = `Could not build the document: ${error.message}`;
+      } finally {
+        picker.disabled = false;
+      }
+    };
+    picker.addEventListener('change', build);
+    tools.append(picker);
+    build();
+    return [el('p', { class: 'muted' }, 'A draft team document: a summary, the outputs whose DOI appears in several members’ records, then each member’s funder template. Roles and contributions are not in the link; add them before use.'), tools, view];
   },
   Heatmap() {
     const url = URL.createObjectURL(new Blob([result.heatmap_svg], { type: 'image/svg+xml' }));
