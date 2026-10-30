@@ -1,6 +1,6 @@
 # Hosting a shareable version on GCP
 
-Status: **strategy only, nothing deployed** (BACKLOG INF-08).
+Status: static showcase pipeline **built but not yet run** (needs the GCP setup below); multi-researcher service **designed, not built** (BACKLOG INF-08, INF-09).
 
 ## What can be shared safely
 
@@ -42,12 +42,46 @@ Note the CI-created commit from `sync.yml` uses `GITHUB_TOKEN`, which does not t
 - Headers: `Content-Security-Policy: default-src 'self'; img-src 'self' data:; script-src 'self'`, `X-Content-Type-Options: nosniff`. SVGs are served as `image/svg+xml` and only embedded through `<img>`, never inlined, because ORCID text is untrusted.
 - Pin the component by tag or commit rather than `@main` on the jsDelivr URL for any site you do not control.
 
-## Decisions needed
+## Decisions taken
 
-1. Custom domain, or is a `*.web.app` URL enough for sharing?
-2. GCP project and billing owner, and region (EU, given the author's location and GDPR).
-3. Whether the showcase should stay a single researcher or become the multi-researcher service. The latter needs the shared-service milestone in #6 (OAuth, per-user authorisation, privacy controls) first, and is a Cloud Run + Firestore/Cloud SQL design, not this one.
+- Share through **Firebase Hosting preview channels** first (30-day expiry, `*.web.app` URL). Promote to `live` by running the workflow manually with `channel=live`.
+- Region: **EU**. Firebase Hosting itself is served from Google's global CDN and has no region setting. The EU choice applies to everything that stores data: Cloud Run `europe-west1`, Firestore/Cloud SQL `eur3`/`europe-west1`, buckets `EU`.
 
-## Later: hosting the network pilot
+## One-time GCP setup for the static showcase
 
-Out of scope until #6's shared-service milestone: ORCID OAuth, per-user authorisation, confirmed invitations, privacy controls, and an agreed ORCID API access/sync model for unattended monitoring. Then Cloud Run behind Identity-Aware Proxy or app-level OAuth, with managed storage replacing the local SQLite file.
+```bash
+gcloud projects create PROJECT_ID && gcloud billing projects link PROJECT_ID --billing-account=ACCOUNT
+gcloud services enable firebasehosting.googleapis.com iamcredentials.googleapis.com --project PROJECT_ID
+firebase projects:addfirebase PROJECT_ID
+gcloud iam service-accounts create gh-deploy --project PROJECT_ID
+gcloud projects add-iam-policy-binding PROJECT_ID --member=serviceAccount:gh-deploy@PROJECT_ID.iam.gserviceaccount.com --role=roles/firebasehosting.admin
+gcloud iam workload-identity-pools create github --location=global --project PROJECT_ID
+gcloud iam workload-identity-pools providers create-oidc repo --location=global --workload-identity-pool=github \
+  --issuer-uri=https://token.actions.githubusercontent.com \
+  --attribute-mapping=google.subject=assertion.sub,attribute.repository=assertion.repository \
+  --attribute-condition="assertion.repository=='dhuzard/orcid-playground'" --project PROJECT_ID
+gcloud iam service-accounts add-iam-policy-binding gh-deploy@PROJECT_ID.iam.gserviceaccount.com \
+  --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/attribute.repository/dhuzard/orcid-playground"
+```
+
+Then set these GitHub repository **variables** (not secrets, none are sensitive): `GCP_PROJECT_ID`, `GCP_WORKLOAD_IDENTITY_PROVIDER` (`projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/repo`) and `GCP_DEPLOY_SERVICE_ACCOUNT`. `.github/workflows/deploy-hosting.yml` builds `site/` with `scripts/build_site.py` and deploys it; `firebase.json` carries the CSP and cache headers.
+
+## Multi-researcher service (designed, not built)
+
+This is the hosted version of the network pilot in draft PR #7 and issue #6's shared-service milestone. **It must not be deployed by pointing Cloud Run at the pilot as it is.** The pilot deliberately refuses any bind address except `127.0.0.1` ("shared hosting requires authentication"), has one workspace, no accounts and a local SQLite file. Removing that guard would publish group rosters to anyone with the URL.
+
+Target architecture, all in the EU:
+
+| Concern | Choice |
+|---|---|
+| Compute | Cloud Run `europe-west1`, deployed with `--no-allow-unauthenticated` until app-level auth exists |
+| Identity | ORCID OAuth (public client, `/authenticate` scope only) in the app; Identity-Aware Proxy as a stop-gap allow-list for the coordinator pilot |
+| Authorisation | Per-user workspaces; an ORCID iD identifies a person and never grants access to a group or project (issue #9) |
+| State | Firestore (`eur3`) or Cloud SQL Postgres, replacing SQLite; one workspace document per user, explicit consent and revocation records |
+| Secrets | Secret Manager for the OAuth client secret; no ORCID tokens in the repo |
+| ORCID API | Explicit, rate-limited, on-request imports only. No unattended polling until the API access/sync model in #6 is agreed with ORCID |
+| Privacy | Rosters and project data private by default; never written to `generated/`, the static site or the feed; informed disclosure per #9 and `AGENTS.md` |
+| Delivery | Separate workflow, `workflow_dispatch` only, same Workload Identity Federation |
+
+Prerequisites, in order: merge PR #7 after the coordinator feedback in #8; add auth, workspace isolation and a storage interface to the pilot; add a Dockerfile and tests that assert the service refuses unauthenticated requests; only then add a Cloud Run deploy workflow (INF-09).

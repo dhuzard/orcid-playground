@@ -1,0 +1,17 @@
+{
+  "hosting": {
+    "public": "site",
+    "ignore": ["firebase.json", "**/.*"],
+    "headers": [
+      {"source": "**", "headers": [
+        {"key": "X-Content-Type-Options", "value": "nosniff"},
+        {"key": "Referrer-Policy", "value": "no-referrer"},
+        {"key": "Content-Security-Policy", "value": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'"}
+      ]},
+      {"source": "generated/**", "headers": [
+        {"key": "Cache-Control", "value": "public, max-age=300"},
+        {"key": "Access-Control-Allow-Origin", "value": "*"}
+      ]}
+    ]
+  }
+}

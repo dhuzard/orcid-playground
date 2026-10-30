@@ -1,0 +1,44 @@
+name: Deploy showcase (Firebase Hosting)
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Preview channel id (use 'live' only after review)"
+        default: preview
+  workflow_run:
+    workflows: ["Synchronize ORCID biosketch"]
+    types: [completed]
+  push:
+    branches: [main]
+    paths: ["generated/**", "web/**", "examples/plain-html.html", "firebase.json", "scripts/build_site.py"]
+permissions:
+  contents: read
+  id-token: write
+concurrency:
+  group: deploy-hosting
+  cancel-in-progress: true
+jobs:
+  deploy:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/build_site.py site
+      - name: Authenticate to Google Cloud (Workload Identity Federation, no stored keys)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - name: Deploy to preview channel
+        run: |
+          CHANNEL="${{ github.event.inputs.channel || 'preview' }}"
+          if [ "$CHANNEL" = "live" ]; then
+            npx --yes firebase-tools@13.29.1 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}"
+          else
+            npx --yes firebase-tools@13.29.1 hosting:channel:deploy "$CHANNEL" --expires 30d --project "${{ vars.GCP_PROJECT_ID }}"
+          fi
