@@ -57,6 +57,8 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | FUN-08 | Deterministic career poster | P3 | deferred | — |
 | FUN-09 | Academic family tree | P3 | deferred | — |
 | KF-12 | Roster assertion export contract (#9) | P1 | in-review | session |
+| INF-08 | Static public showcase hosted on GCP | P2 | in-progress | session |
+| INF-09 | Hosted multi-researcher service on Cloud Run | P2 | planned | — |
 
 ---
 
@@ -78,8 +80,8 @@ publication list — no funder template can be filled without them.
 - [x] Peer review aggregated per reviewer group with review counts.
 - [x] Schema updated; every new section documented and validated.
 - [x] Markdown and JSON-LD renderers surface the new sections.
-- [ ] Markdown coverage for `qualifications`, `invited_positions` and
-      `research_resources` (parsed and exported, not yet rendered).
+- [x] Markdown coverage for `qualifications`, `invited_positions` and
+      `research_resources` (`test_markdown_renders_qualifications_invited_positions_and_resources`).
 - [x] Sections absent from a record degrade to empty lists, never `KeyError`.
 
 **Notes** — Peer review is the only machine-readable record of academic
@@ -514,6 +516,36 @@ but rejected by the CLI, and missing affiliation dates are rendered as
 
 ---
 
+## INF-08 — Static public showcase hosted on GCP
+
+- **Priority** P2 · **Status** in-progress · **Owner** session · **Rev** r2
+- **Files** `docs/gcp-hosting.md`, `scripts/build_site.py`, `firebase.json`, `.github/workflows/deploy-hosting.yml`
+
+Pipeline built and tested locally (`tests/test_site.py`); not yet run against a GCP project. See [docs/gcp-hosting.md](docs/gcp-hosting.md).
+
+**Acceptance criteria**
+- [x] Site contains only `generated/` and `web/` outputs (`tests/test_site.py`).
+- [x] Deploy workflow uses Workload Identity Federation, no stored keys.
+- [x] The network pilot (PR #7) is not exposed publicly.
+- [ ] GCP project, WIF and repository variables created; preview channel URL shared.
+
+---
+
+## INF-09 — Hosted multi-researcher service on Cloud Run
+
+- **Priority** P2 · **Status** planned · **Owner** — · **Rev** r1
+- **Files** `docs/gcp-hosting.md`
+
+Blocked on PR #7 and issue #6's shared-service milestone. The pilot refuses non-loopback binding by design.
+
+**Acceptance criteria**
+- [ ] ORCID OAuth sign-in and per-user workspace isolation.
+- [ ] Managed EU storage replaces SQLite.
+- [ ] Tests prove unauthenticated requests are refused.
+- [ ] Rosters never reach public outputs.
+
+---
+
 ## KF-12 — Roster assertion export contract
 
 - **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
@@ -594,3 +626,7 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-09-01 | INF-03 | Live `funding-summary` and full funding response shapes verified; remaining uncommon activity shapes stay open | planned → in-progress |
 | 2026-09-01 | INF-04 | Published outputs regenerated at schema 0.2.0 and playful website artifacts added to daily sync | planned → done |
 | 2026-10-18 | KF-12 | Roster assertion contract, fixtures and tests opened for #9 | — → in-review |
+| 2026-10-30 | KF-01 | Markdown now renders qualifications, invited positions and research resources | fix |
+| 2026-10-30 | INF-08 | GCP hosting strategy documented in docs/gcp-hosting.md; no deployment yet | — → planned |
+| 2026-10-30 | INF-08 | Static site builder, Firebase config and preview-channel deploy workflow added | planned → in-progress |
+| 2026-10-30 | INF-09 | Hosted multi-researcher service designed and gated on auth; pilot not deployable as is | — → planned |
