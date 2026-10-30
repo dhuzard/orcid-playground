@@ -50,3 +50,52 @@ document.querySelector('#reset-workspace')?.addEventListener('click', async () =
   await call('reset');
   location.reload();
 });
+
+// "What's new since your last visit": the previous visit time is kept for this
+// browser tab session, so the digest stays stable while the visitor works.
+let since = null;
+try {
+  since = sessionStorage.getItem('orcid-playground-digest-since');
+  if (since === null) {
+    since = localStorage.getItem('orcid-playground-last-visit') || '';
+    sessionStorage.setItem('orcid-playground-digest-since', since);
+  }
+  localStorage.setItem('orcid-playground-last-visit', new Date().toISOString());
+} catch { /* Storage unavailable: the digest covers everything observed. */ }
+
+const readState = async () => (await window.fetch('/api/state')).json();
+const digestButton = document.querySelector('#digest');
+
+async function digest() {
+  const { buildDigest } = await import('/digest.js');
+  return buildDigest(await readState(), since || null);
+}
+
+if (digestButton) {
+  digest().then(({ count }) => { digestButton.textContent = `What’s new since your last visit (${count})`; }).catch(() => {});
+  digestButton.addEventListener('click', async () => {
+    const { markdown } = await digest();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown' }));
+    link.download = 'whats-new.md';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  });
+}
+
+// Re-reading followed records is an explicit, one-off action; nothing polls ORCID.
+document.querySelector('#refresh-followed')?.addEventListener('click', async event => {
+  const button = event.currentTarget;
+  const followed = (await readState()).people.filter(p => p.following && p.orcid && !p.demo);
+  if (!followed.length) return alert('Follow at least one researcher with a public ORCID record first.');
+  if (!confirm(`Read the public ORCID records of the ${followed.length} researcher(s) you follow again?`)) return;
+  button.disabled = true;
+  const failed = [];
+  for (const [i, person] of followed.entries()) {
+    button.textContent = `Refreshing ${i + 1} of ${followed.length}…`;
+    const response = await window.fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orcid: person.orcid }) });
+    if (!response.ok) failed.push(person.name);
+  }
+  if (failed.length) alert(`Could not refresh: ${failed.join(', ')}`);
+  location.reload();
+});

@@ -8,6 +8,8 @@ let group = null;
 let bios = new Map();
 let failures = new Map();
 let result = null;
+let membersJson = '[]';
+let extras = null;
 let objectUrls = [];
 
 function el(tag, attrs = {}, ...children) {
@@ -91,7 +93,9 @@ async function readMembers(ids) {
     return say('None of the records could be read; the reason is shown next to each iD.', { error: true });
   }
   try {
-    result = JSON.parse(await call('group', { name: group.name, bios: JSON.stringify(ordered) }));
+    membersJson = JSON.stringify(ordered);
+    result = JSON.parse(await call('group', { name: group.name, bios: membersJson }));
+    extras = JSON.parse(await call('extras', { name: group.name, bios: membersJson }));
   } catch (error) {
     return say(`Could not build the group view: ${error.message}`, { error: true });
   }
@@ -157,6 +161,87 @@ const TABS = {
     if (!shared.length) return [el('p', {}, 'No output is asserted by more than one member.')];
     return [el('ul', { class: 'outputs' }, shared.map(o => el('li', {}, el('b', {}, o.title || 'Untitled'), ` ${o.year || ''} · `, doiLink(o.doi),
       el('div', { class: 'muted' }, `Asserted by ${o.members.map(nameOf).join(', ')}`))))];
+  },
+  'Record health'() {
+    const { health } = result;
+    const total = health.members.length;
+    return [
+      el('div', { class: 'health-head' }, el('div', { class: 'grade' }, health.grade, el('small', {}, `${health.score}%`)),
+        el('p', {}, health.basis, ' Fixes below are listed by how many members they affect.')),
+      el('div', { class: 'tools' }, download('Report for members (Markdown)', result.health_markdown, 'record-health.md', 'text/markdown')),
+      el('h3', {}, 'Most common issues'),
+      health.issues.length ? el('ul', { class: 'findings' }, health.issues.map(issue => el('li', {},
+        el('b', {}, `${issue.label} `, el('span', { class: 'muted' }, `· ${issue.members.length} of ${total} members · ${issue.severity}`)),
+        el('div', {}, issue.fix),
+        el('div', { class: 'muted' }, issue.members.map(m => m.name).join(', '))))) : el('p', {}, 'No issues found.'),
+      el('h3', {}, 'By member'),
+      ...health.members.map(member => el('details', { class: 'member-health' },
+        el('summary', {}, el('b', {}, member.name), ` ${member.percentage}% · grade ${member.grade} · ${member.findings.length} finding${member.findings.length === 1 ? '' : 's'}`),
+        member.findings.length ? el('ul', {}, member.findings.map(f => el('li', {}, f.message, el('div', { class: 'muted' }, `Fix: ${f.fix || ''}`)))) : el('p', {}, 'No issues found.'),
+        el('a', { href: `https://orcid.org/${member.orcid}`, target: '_blank', rel: 'noopener noreferrer' }, 'Open this ORCID record ↗'))),
+    ];
+  },
+  'Team biosketch'() {
+    const view = el('pre', {}, 'Choose a format.');
+    const tools = el('div', { class: 'tools' });
+    const picker = el('select', { 'aria-label': 'Funder format' }, result.templates.map(n => el('option', { value: n }, n.toUpperCase())));
+    const build = async () => {
+      picker.disabled = true;
+      view.textContent = 'Building…';
+      try {
+        const text = await call('team', { name: group.name, bios: membersJson, template: picker.value });
+        // Blob URLs are released on the next tab switch; revoking here could break
+        // a tab the visitor opened while this document was still building.
+        view.textContent = text;
+        tools.replaceChildren(picker, download('Markdown', text, `team-biosketch-${picker.value}.md`, 'text/markdown'));
+      } catch (error) {
+        view.textContent = `Could not build the document: ${error.message}`;
+      } finally {
+        picker.disabled = false;
+      }
+    };
+    picker.addEventListener('change', build);
+    tools.append(picker);
+    build();
+    return [el('p', { class: 'muted' }, 'A draft team document: a summary, the outputs whose DOI appears in several members’ records, then each member’s funder template. Roles and contributions are not in the link; add them before use.'), tools, view];
+  },
+  Wrapped() {
+    const data = extras.wrapped;
+    return [el('p', { class: 'muted' }, `The group’s ${data.year || ''} in review, from outputs merged by DOI. Each member’s count comes from their own record.`),
+      el('div', { class: 'tools' }, download('Text', extras.wrapped_text, 'group-wrapped.txt', 'text/plain'), download('JSON', JSON.stringify(data, null, 2), 'group-wrapped.json', 'application/json')),
+      el('pre', { class: 'terminal' }, extras.wrapped_text)];
+  },
+  'Card deck'() {
+    const zip = Uint8Array.from(atob(extras.deck_zip_b64), c => c.charCodeAt(0));
+    const zipUrl = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+    objectUrls.push(zipUrl);
+    const deck = el('div', { class: 'deck' }, extras.deck.map(card => {
+      const url = URL.createObjectURL(new Blob([card.svg], { type: 'image/svg+xml' }));
+      objectUrls.push(url);
+      return el('img', { src: url, alt: `Trading card for ${card.name}`, width: 320, height: 440 });
+    }));
+    return [el('p', { class: 'muted' }, 'One card per member, each built only from that member’s record.'),
+      el('div', { class: 'tools' }, el('button', { class: 'button quiet small', type: 'button', onclick: () => {
+        document.body.classList.add('print-deck');
+        addEventListener('afterprint', () => document.body.classList.remove('print-deck'), { once: true });
+        window.print();
+      } }, 'Print the deck'), el('a', { class: 'button quiet small', href: zipUrl, download: 'group-cards.zip' }, '↓ All cards (ZIP)')),
+      deck];
+  },
+  Embed() {
+    const snapshot = JSON.stringify(extras.snapshot, null, 2);
+    const snippet = `<script type="module" src="${location.origin}/orcid-group.js"></script>\n<orcid-group src="/group.json"></orcid-group>`;
+    const preview = el('orcid-group', { src: URL.createObjectURL(new Blob([snapshot], { type: 'application/json' })), limit: '10' });
+    objectUrls.push(preview.getAttribute('src'));
+    import('/orcid-group.js');
+    return [el('p', {}, 'Show this group on a lab website. Host the snapshot file next to your page and paste the snippet. The widget reads only that file; refresh it by downloading a new snapshot.'),
+      el('div', { class: 'tools' }, download('Snapshot (group.json)', snapshot, 'group.json', 'application/json'),
+        el('button', { class: 'button quiet small', type: 'button', onclick: async () => {
+          try { await navigator.clipboard.writeText(snippet); say('Snippet copied.'); } catch { say('Select the snippet and copy it.'); }
+        } }, 'Copy snippet')),
+      el('pre', {}, snippet),
+      el('h3', {}, 'Preview'),
+      el('div', { class: 'embed-preview' }, preview)];
   },
   Heatmap() {
     const url = URL.createObjectURL(new Blob([result.heatmap_svg], { type: 'image/svg+xml' }));
