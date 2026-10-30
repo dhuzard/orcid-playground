@@ -10,11 +10,13 @@ function decode(reply) {
 }
 
 window.fetch = async (input, init = {}) => {
-  const url = new URL(typeof input === 'string' ? input : input.url, location.href);
+  const request = input instanceof Request ? input : null;
+  const url = new URL(request ? request.url : String(input), location.href);
   if (url.origin !== location.origin || !url.pathname.startsWith('/api/')) return nativeFetch(input, init);
-  const method = (init.method || 'GET').toUpperCase();
+  const method = (init.method || request?.method || 'GET').toUpperCase();
   try {
-    const reply = JSON.parse(await call('api', { method, target: url.pathname + url.search, body: init.body ?? null }));
+    const body = init.body ?? (request && method !== 'GET' ? await request.text() : null);
+    const reply = JSON.parse(await call('api', { method, target: url.pathname + url.search, body }));
     return new Response(decode(reply), { status: reply.status, headers: { 'Content-Type': reply.content_type } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
@@ -25,11 +27,19 @@ window.fetch = async (input, init = {}) => {
 // (?sample=1); run that first so the app's initial state already includes it.
 const params = new URLSearchParams(location.search);
 const handoff = params.get('import');
-const setup = handoff ? ['/api/import', { orcid: handoff }] : params.has('sample') ? ['/api/demo', {}] : null;
+const wanted = handoff ? ['/api/import', { orcid: handoff }] : params.has('sample') ? ['/api/demo', {}] : null;
+// A link must not change someone's workspace or call ORCID without them agreeing.
+const setup = wanted && confirm(handoff
+  ? `Add the public ORCID record ${handoff} to the research network stored in this browser?`
+  : 'Add the labelled sample people and group to the research network stored in this browser?') ? wanted : null;
+if (wanted) history.replaceState(null, '', location.pathname + (location.hash || (handoff ? '#people' : '#feed')));
 if (setup) {
-  history.replaceState(null, '', location.pathname + (location.hash || (handoff ? '#people' : '#feed')));
   const ready = window.fetch(setup[0], { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(setup[1]) })
-    .then(async response => { if (!response.ok) alert(`Could not add ${handoff}: ${(await response.json()).error}`); })
+    .then(async response => {
+      if (response.ok) return;
+      const { error } = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+      alert(handoff ? `Could not add ${handoff}: ${error}` : `Could not load the sample data: ${error}`);
+    })
     .catch(() => {});
   const bridged = window.fetch;
   window.fetch = async (input, init) => { await ready; return bridged(input, init); };

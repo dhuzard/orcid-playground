@@ -43,7 +43,7 @@ Start with **Firebase Hosting preview channels** to share a link this week, then
 1. `sync.yml` already regenerates `generated/` daily and commits it.
 2. Add `deploy.yml`, triggered on push to `main` touching `generated/**` or `web/**` plus `workflow_dispatch`.
 3. It assembles `site/` by copying `generated/`, `web/orcid-biosketch.js` and `examples/plain-html.html` as `index.html` (with the component `src` pointed at the relative `generated/biosketch.json`), then runs `gcloud storage rsync --delete-unmatched-destination-objects` (or `firebase deploy`).
-4. Authenticate with **Workload Identity Federation** (`google-github-actions/auth`) restricted to this repo and branch. No service-account JSON keys in GitHub secrets.
+4. Authenticate with **Workload Identity Federation** (`google-github-actions/auth`) restricted to this repository; the workflow itself refuses to deploy anything but `main` to the live channel. No service-account JSON keys in GitHub secrets.
 5. The deploy service account gets only `roles/storage.objectAdmin` on the one bucket.
 
 Note the CI-created commit from `sync.yml` uses `GITHUB_TOKEN`, which does not trigger other workflows. Either call the deploy as a final step of `sync.yml` or use `workflow_run`.

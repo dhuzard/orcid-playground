@@ -49,7 +49,7 @@ async function verify(token, clientId, nonce) {
   const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
   const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64url(signature64), new TextEncoder().encode(`${header64}.${payload64}`));
   const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-  if (!valid || claims.iss !== ISSUER || !audience.includes(clientId) || claims.nonce !== nonce || claims.exp * 1000 < Date.now()) {
+  if (!valid || claims.iss !== ISSUER || !audience.includes(clientId) || claims.nonce !== nonce || typeof claims.exp !== 'number' || claims.exp * 1000 < Date.now()) {
     throw new Error('ORCID sign-in could not be verified.');
   }
   return claims;
@@ -62,8 +62,8 @@ export async function completeSignIn(clientId) {
   history.replaceState(null, '', location.pathname + location.search);
   const pending = read(`${KEY}-pending`);
   store(`${KEY}-pending`, null);
-  if (fragment.has('error')) throw new Error(fragment.get('error_description') || 'ORCID sign-in was cancelled.');
   if (!pending || fragment.get('state') !== pending.state) throw new Error('ORCID sign-in response did not match this browser tab.');
+  if (fragment.has('error')) throw new Error('ORCID sign-in was cancelled or refused.');
   const claims = await verify(fragment.get('id_token'), clientId, pending.nonce);
   const session = { orcid: claims.sub, name: [claims.given_name, claims.family_name].filter(Boolean).join(' ') || null };
   store(KEY, session);

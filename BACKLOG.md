@@ -628,6 +628,7 @@ the OpenID Connect implicit flow and verifies the ID token in the browser.
 - [x] The unchanged pilot app runs on the browser engine; workspace persists across reloads; team pack ZIP downloads (headless Chrome).
 - [x] No server-side state; network data never leaves the browser; strict CSP without `unsafe-eval`.
 - [x] Loopback server behaviour unchanged (`tests/test_network_http.py`, `tests/test_group_http.py`).
+- [x] Audit fixes: live channel only from `main`; cross-tab Web Lock prevents workspace overwrites; links ask before importing; engine recovers from a failed start (headless Chrome: two tabs, blocked runtime).
 - [ ] ORCID public API client registered and `ORCID_CLIENT_ID` variable set; sign-in verified live.
 - [ ] Promoted to the live channel after review.
 
@@ -742,3 +743,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-30 | INF-08 | Preview deployed to orcid-playground-889 (run 41071880181) | in-progress → done |
 | 2026-10-30 | KF-10, KF-11 | Network pilot (PR #7) merged to main; coordinator feedback (#8) still pending | merged |
 | 2026-10-30 | INF-10 | In-browser playground: Studio, network on Pyodide, optional ORCID sign-in | — → in-review |
+| 2026-10-30 | INF-10 | Audit: deploy hardening, cross-tab workspace lock, confirmed handoffs, engine recovery, identity check | fix |

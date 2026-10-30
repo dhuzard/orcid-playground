@@ -17,7 +17,7 @@ from typing import Any, Callable
 
 from . import exporters, fun
 from . import lint as quality
-from .core import build_biosketch, fetch_orcid_record, normalize_orcid, render_markdown, to_jsonld
+from .core import OrcidError, build_biosketch, fetch_orcid_record, normalize_orcid, render_markdown, to_jsonld
 from .network import dispatch, import_public_record
 from .network_store import NetworkStore
 
@@ -68,8 +68,11 @@ def outputs(bio: dict[str, Any]) -> dict[str, Any]:
 
 def profile(value: str) -> str:
     """Fetch one public record on the visitor's explicit request and render it."""
-    record = fetch_orcid_record(normalize_orcid(value), retries=1, timeout=30)
-    return json.dumps(outputs(build_biosketch(record)), ensure_ascii=False)
+    orcid = normalize_orcid(value)
+    bio = build_biosketch(fetch_orcid_record(orcid, retries=1, timeout=30))
+    if bio["person"]["orcid"] != orcid:
+        raise OrcidError("The returned ORCID record did not match the requested iD.")
+    return json.dumps(outputs(bio), ensure_ascii=False)
 
 
 def profile_from_biosketch(text: str) -> str:
@@ -79,6 +82,10 @@ def profile_from_biosketch(text: str) -> str:
 
 def fortune(text: str, seed: int) -> str:
     return fun.fortune(json.loads(text), seed=seed)
+
+
+def _reject_constant(value):
+    raise ValueError(f"Non-finite JSON value {value} is not supported.")
 
 
 class Workspace:
@@ -91,8 +98,8 @@ class Workspace:
         payload = None
         if method == "POST":
             try:
-                payload = json.loads(body or "")
-            except json.JSONDecodeError:
+                payload = json.loads(body or "", parse_constant=_reject_constant)
+            except (json.JSONDecodeError, ValueError):
                 return json.dumps({"status": 400, "content_type": "application/json",
                                    "body": json.dumps({"error": "Expected a JSON object."})})
         status, data, content_type, filename = dispatch(self.store, import_public_record, method, target, payload)

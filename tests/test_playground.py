@@ -97,3 +97,17 @@ def test_workspace_serves_pilot_api_and_team_pack(tmp_path):
 def test_workspace_rejects_invalid_requests(tmp_path, method, target, body, status):
     reply = json.loads(playground.Workspace(str(tmp_path / "w.sqlite3")).request(method, target, body))
     assert reply["status"] == status and json.loads(reply["body"])["error"]
+
+
+def test_profile_refuses_a_record_for_another_id(browser):
+    other = json.loads(json.dumps(RECORD))
+    other["orcid-identifier"]["path"] = "0000-0002-1825-0097"
+    browser({"/record": [200, json.dumps(other), None]})
+    with pytest.raises(OrcidError, match="did not match"):
+        playground.profile(ORCID)
+
+
+def test_workspace_rejects_non_finite_json_like_the_server(tmp_path):
+    workspace = playground.Workspace(str(tmp_path / "w.sqlite3"))
+    reply = json.loads(workspace.request("POST", "/api/groups", '{"name": "x", "member_ids": [], "n": NaN}'))
+    assert reply["status"] == 400

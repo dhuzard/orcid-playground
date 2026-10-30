@@ -584,7 +584,7 @@ async function initialize() {
     render();
   } catch (error) {
     notice(error.message, true);
-    document.querySelector('#view').replaceChildren(empty('Your workspace is unavailable.', 'Check the local server, then reload this page.', button('Reload page', () => location.reload(), '')));
+    document.querySelector('#view').replaceChildren(empty('Your workspace is unavailable.', 'Reload this page to try again. When running the local pilot, check that its server is still running.', button('Reload page', () => location.reload(), '')));
   }
 }
 

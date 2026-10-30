@@ -152,8 +152,13 @@ $('#lookup').addEventListener('submit', event => {
 });
 document.querySelectorAll('[data-orcid]').forEach(b => b.addEventListener('click', () => explore(b.dataset.orcid)));
 $('[data-sample]').addEventListener('click', async () => {
-  const response = await fetch('/generated/biosketch.json');
-  load('sample', { biosketch: await response.text() }, 'Loading the stored sample profile…');
+  try {
+    const response = await fetch('/generated/biosketch.json');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    load('sample', { biosketch: await response.text() }, 'Loading the stored sample profile…');
+  } catch (error) {
+    say(`Could not load the stored sample (${error.message}).`, { error: true });
+  }
 });
 
 function renderAccount(clientId) {
@@ -180,5 +185,9 @@ function renderAccount(clientId) {
     say(error.message, { error: true });
   }
   const requested = new URLSearchParams(location.search).get('orcid');
-  if (requested) explore(requested);
+  if (requested) {
+    $('#orcid').value = requested;
+    $('#lookup button').focus();
+    say(`Press Explore to read the public ORCID record for ${requested}.`);
+  }
 })();
