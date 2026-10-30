@@ -7,13 +7,17 @@ both say plainly that the group is curated by whoever assembled it.
 """
 from __future__ import annotations
 
+import base64
+import io
 import re
+import zipfile
 from datetime import datetime, timezone
 from statistics import mean
 from typing import Any
 
+from . import fun
 from . import lint as quality
-from .collaboration import collaboration_graph
+from .collaboration import collaboration_graph, doi_key, group_bibliography
 from .exporters import available_templates, render_template
 
 SEVERITY_ORDER = {"error": 0, "warning": 1, "info": 2}
@@ -121,3 +125,67 @@ def team_biosketch(bios: list[dict[str, Any]], template: str, group_name: str) -
     for bio in bios:
         lines += ["", "---", "", _demote(render_template(bio, template)).strip()]
     return "\n".join(lines).rstrip() + "\n"
+
+
+def group_wrapped(bios: list[dict[str, Any]], group_name: str, year: int | None = None) -> dict[str, Any]:
+    """The group's year in review: merged outputs, each member's count, and joint DOIs that year."""
+    combined = {"person": {"name": group_name}, "works": group_bibliography(bios)}
+    summary = fun.wrapped(combined, year)
+    year = summary.get("year")
+    members = []
+    for bio in bios:
+        orcid, name = _identity(bio)
+        members.append({"orcid": orcid, "name": name, "outputs": fun.wrapped(bio, year).get("output_count", 0) if year else 0})
+    joint = [o for o in collaboration_graph(bios)["shared_outputs"] if year and o["year"] == str(year)]
+    return {"year": year, "group": summary, "members": sorted(members, key=lambda m: (-m["outputs"], m["name"])),
+            "joint_outputs": joint}
+
+
+def render_group_wrapped(data: dict[str, Any]) -> str:
+    """Terminal-style card: the package's wrapped card for the group, then who and what was joint."""
+    names = {m["orcid"]: m["name"] for m in data["members"]}
+    lines = [fun.render_wrapped(data["group"]).rstrip(), "", f"Members in {data['year'] or 'the record'}:"]
+    lines += [f"  {m['outputs']:>3}  {m['name']}" for m in data["members"]]
+    lines += ["", "Joint outputs (same DOI in several members' records):"]
+    lines += [f"  - {o['title'] or 'Untitled'} ({', '.join(names.get(x, x) for x in o['members'])})"
+              for o in data["joint_outputs"]] or ["  none this year"]
+    lines += ["", BASIS]
+    return "\n".join(lines) + "\n"
+
+
+def card_deck(bios: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Every member's trading card, each built only from that member's record."""
+    return [{"orcid": orcid, "name": name, "svg": fun.trading_card_svg(bio)}
+            for bio in bios for orcid, name in [_identity(bio)]]
+
+
+def card_deck_zip(deck: list[dict[str, str]]) -> str:
+    """The deck as a ZIP of SVG files, base64-encoded for the browser."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for card in deck:
+            archive.writestr(f"{card['orcid'] or 'member'}-card.svg", card["svg"])
+    return base64.b64encode(buffer.getvalue()).decode("ascii")
+
+
+def group_snapshot(bios: list[dict[str, Any]], group_name: str) -> dict[str, Any]:
+    """A static JSON file a lab can host for the <orcid-group> widget; public assertions only."""
+    graph = collaboration_graph(bios)
+    members = []
+    for bio in bios:
+        orcid, name = _identity(bio)
+        person = bio.get("person") if isinstance(bio.get("person"), dict) else {}
+        members.append({"orcid": orcid, "name": name, "headline": person.get("headline") or ""})
+    works = [{"title": w.get("title") or "", "publication_date": w.get("publication_date") or "",
+              "journal": w.get("journal") or "", "type": w.get("type") or "", "doi": doi_key(w),
+              "url": w.get("url") or "", "asserted_by": w.get("asserted_by", [])}
+             for w in group_bibliography(bios)]
+    return {
+        "schema": "orcid-group-snapshot/1",
+        "name": group_name,
+        "members": members,
+        "works": works,
+        "shared_dois": [o["doi"] for o in graph["shared_outputs"]],
+        "provenance": {"source": "Public ORCID records", "generated_at": _now(),
+                       "membership": "Assembled by the publisher of this file; not confirmed by the people listed."},
+    }

@@ -41,7 +41,16 @@ The playground runs everything in the visitor's browser: try it at
 - **Research network** (`/network/`): the pilot below, with its workspace stored
   only in that browser.
 - **Group view** (`/group/`): a shareable link of public ORCID iDs that shows who
-  has published together, linking members only through DOIs both records assert.
+  has published together, linking members only through DOIs both records assert,
+  with record health, a funder team biosketch, Group Wrapped and a printable card deck.
+
+The site installs as an app and works offline after one visit. To show a group on
+a lab website, download its snapshot from the group view's Embed tab and add:
+
+```html
+<script type="module" src="https://orcid-playground-889.web.app/orcid-group.js"></script>
+<orcid-group src="/group.json"></orcid-group>
+```
 
 The package runs under [Pyodide](https://pyodide.org), served from the site with
 pinned hashes, in a Web Worker and reads only the public ORCID API; the site has

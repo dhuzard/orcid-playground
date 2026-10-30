@@ -111,6 +111,15 @@ h2{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:clamp(1
 .member-health summary{cursor:pointer}
 .member-health ul{padding-left:20px}
 .member-health li{margin:6px 0}
+.deck{display:flex;flex-wrap:wrap;gap:16px}
+.deck img{max-width:100%;height:auto;border-radius:12px;box-shadow:0 6px 24px rgba(20,61,55,.12)}
+.embed-preview{border:1px dashed var(--line);border-radius:12px;padding:16px;background:var(--white)}
+@media print{
+  body.print-deck *{visibility:hidden}
+  body.print-deck .deck,body.print-deck .deck *{visibility:visible}
+  body.print-deck .deck{position:absolute;left:0;top:0;gap:6mm}
+  body.print-deck .deck img{width:63mm;height:88mm;box-shadow:none;break-inside:avoid}
+}
 @media (max-width:760px){.graph-wrap{grid-template-columns:1fr}}
 
 .site-footer{max-width:1120px;margin:0 auto;padding:24px 16px 48px;font-size:.85rem;color:var(--muted);border-top:1px solid var(--line)}

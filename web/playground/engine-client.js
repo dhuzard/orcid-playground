@@ -1,4 +1,6 @@
 // Page-side handle on the in-browser engine worker (engine.js).
+// Every playground page imports this module, so it also installs the offline service worker.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 let worker;
 let next = 0;
 const pending = new Map();

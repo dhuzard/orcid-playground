@@ -17,7 +17,8 @@ from typing import Any, Callable
 
 from . import exporters, fun
 from .collaboration import collaboration_graph, group_bibliography
-from .team import group_health, render_health, team_biosketch
+from .team import (card_deck, card_deck_zip, group_health, group_snapshot, group_wrapped, render_group_wrapped,
+                   render_health, team_biosketch)
 from . import lint as quality
 from .core import OrcidError, build_biosketch, fetch_orcid_record, normalize_orcid, render_markdown, to_jsonld
 from .network import dispatch, import_public_record
@@ -107,6 +108,20 @@ def group(name: str, bios_text: str) -> str:
 def team(name: str, bios_text: str, template: str) -> str:
     """The team biosketch in one funder format, as Markdown."""
     return team_biosketch(json.loads(bios_text), template, name)
+
+
+def group_extras(name: str, bios_text: str) -> str:
+    """Year in review, card deck and embeddable snapshot for the group view."""
+    bios = json.loads(bios_text)
+    year_in_review = group_wrapped(bios, name)
+    deck = card_deck(bios)
+    return json.dumps({
+        "wrapped": year_in_review,
+        "wrapped_text": render_group_wrapped(year_in_review),
+        "deck": deck,
+        "deck_zip_b64": card_deck_zip(deck),
+        "snapshot": group_snapshot(bios, name),
+    }, ensure_ascii=False)
 
 
 def fortune(text: str, seed: int) -> str:

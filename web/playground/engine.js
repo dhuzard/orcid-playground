@@ -84,6 +84,9 @@ const operations = {
   async team({ engine }, { name, bios, template }) {
     return engine.team(name, bios, template);
   },
+  async extras({ engine }, { name, bios }) {
+    return engine.group_extras(name, bios);
+  },
   async api(state, { method, target, body }) {
     const file = `${WORKSPACE}/network.sqlite3`;
     return withWorkspace(state.py, method !== 'GET', () => {

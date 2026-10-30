@@ -20,7 +20,7 @@ from typing import Callable
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_SUFFIXES = {".json", ".jsonld", ".md", ".svg", ".txt"}
 PLAYGROUND = ("index.html", "playground.css", "studio.js", "auth.js", "engine.js", "engine-client.js", "network-bridge.js",
-              "group.js", "group-link.js")
+              "group.js", "group-link.js", "digest.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png")
 # Fixed timestamp so the same source always produces the same archive.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 
@@ -64,12 +64,16 @@ def fetch_runtime(out: Path, *, cache: Path = RUNTIME_CACHE, download: Callable[
 # The pilot page as served by the hosted site: same app, browser-held workspace.
 NETWORK_PAGE = [
     ('<html lang="en">', '<html lang="en" data-hosted="true">'),
+    ('<link rel="icon" href="data:,">',
+     '<link rel="icon" href="/icon.svg" type="image/svg+xml">\n  <link rel="manifest" href="/manifest.webmanifest">'),
     ('href="/style.css"', 'href="/network/style.css"'),
     ('<script type="module" src="/app.js"></script>',
      '<script type="module" src="/network-bridge.js"></script>\n  <script type="module" src="/network/app.js"></script>'),
     ("LOCAL PILOT", "IN THIS BROWSER"),
     ("One local workspace.<br>No accounts or public profiles.",
      'Stored only in this browser.<br>No accounts or public profiles.<br>'
+     '<button id="refresh-followed" class="button quiet small" type="button">Refresh followed records</button><br>'
+     '<button id="digest" class="button quiet small" type="button">What’s new since your last visit</button><br>'
      '<button id="reset-workspace" class="button quiet small" type="button">Clear this workspace</button>'
      '<br><a href="/">← Back to the Studio</a>'),
     ("01 / LOCAL", "01 / BROWSER"),
@@ -107,17 +111,25 @@ def build(out: Path, root: Path = ROOT, *, client_id: str | None = None) -> list
             copied.append(f"generated/{source.name}")
     for name in PLAYGROUND:
         shutil.copy2(root / "web" / "playground" / name, out / name)
-    shutil.copy2(root / "web" / "orcid-biosketch.js", out / "orcid-biosketch.js")
+    for widget in ("orcid-biosketch.js", "orcid-group.js"):
+        shutil.copy2(root / "web" / widget, out / widget)
     for name in ("app.js", "style.css"):
         shutil.copy2(root / "web" / "network" / name, out / "network" / name)
     (out / "network" / "index.html").write_text(network_page(root), encoding="utf-8")
     shutil.copy2(root / "web" / "playground" / "group.html", out / "group" / "index.html")
     package_archive(out / "py" / "orcid_biosketch.zip", root)
+    # The service worker carries a digest of everything else, so any change to the site
+    # installs a fresh cache on the next visit.
+    digest = hashlib.sha256()
+    for path in sorted(p for p in out.rglob("*") if p.is_file()):
+        digest.update(path.relative_to(out).as_posix().encode() + b"\0" + path.read_bytes())
+    worker = (root / "web" / "playground" / "sw.js").read_text(encoding="utf-8")
+    (out / "sw.js").write_text(worker.replace("__BUILD__", digest.hexdigest()[:16]), encoding="utf-8")
     # The ORCID client id of a public OAuth client is not a secret; empty hides sign-in.
     client_id = os.environ.get("ORCID_CLIENT_ID", "") if client_id is None else client_id
     (out / "config.json").write_text(json.dumps({"orcid_client_id": client_id.strip()}) + "\n", encoding="utf-8")
-    return copied + [*PLAYGROUND, "orcid-biosketch.js", "network/app.js", "network/style.css",
-                     "network/index.html", "group/index.html", "py/orcid_biosketch.zip", "config.json"]
+    return copied + [*PLAYGROUND, "orcid-biosketch.js", "orcid-group.js", "network/app.js", "network/style.css",
+                     "network/index.html", "group/index.html", "py/orcid_biosketch.zip", "sw.js", "config.json"]
 
 
 if __name__ == "__main__":
