@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#143d37">
+  <meta name="description" content="See a research group built live from its members' public ORCID records: who has published together, shown with the DOIs that prove it.">
+  <link rel="icon" href="data:,">
+  <title>Group View · ORCID Playground</title>
+  <link rel="stylesheet" href="/playground.css">
+  <script type="module" src="/group.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">o.</span> ORCID Playground</a>
+    <nav aria-label="Main">
+      <a href="/">Studio</a>
+      <a href="/network/">Research network</a>
+      <a href="/group/" aria-current="page">Group view</a>
+    </nav>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero">
+      <div class="eyebrow">MULTI-ORCID · SHAREABLE</div>
+      <h1 id="title">See a group through its public records.</h1>
+      <p class="lede" id="lede">Put a group's ORCID iDs into one link. Anyone who opens it can see who has published together, with the DOIs that prove each link.</p>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="compose" class="result" hidden>
+      <h2>Create a group link</h2>
+      <form id="compose-form" class="stack">
+        <label>Group name <input id="compose-name" maxlength="120" required placeholder="Example: Home-cage monitoring working group"></label>
+        <label>ORCID iDs, separated by spaces, commas or new lines (up to 50)
+          <textarea id="compose-ids" rows="6" required placeholder="0000-0002-1825-0097&#10;https://orcid.org/0000-0003-4820-7951"></textarea></label>
+        <button class="button accent" type="submit">Preview the link</button>
+      </form>
+    </section>
+
+    <section id="preview" class="result" hidden>
+      <div class="eyebrow">GROUP LINK</div>
+      <h2 id="group-name"></h2>
+      <div class="disclosure">
+        <b>What this link contains</b>
+        <p>Only the group name and the <span id="member-count"></span> public ORCID iDs below. No roles, contributions, requests, notes or selected outputs. The group is not confirmed by the people listed.</p>
+      </div>
+      <ol id="members" class="member-list"></ol>
+      <div class="result-actions">
+        <button id="load" class="button accent" type="button">Read the public records</button>
+        <button id="copy" class="button quiet" type="button">Copy link</button>
+        <a class="button quiet" href="/group/">New group link</a>
+      </div>
+      <p class="muted small">Reading calls the public ORCID API once per member from your browser. Nothing is stored.</p>
+    </section>
+
+    <section id="view" class="result" hidden>
+      <div class="stats" id="stats"></div>
+      <div class="tabs" role="tablist" aria-label="Group outputs" id="tabs"></div>
+      <div id="panel" class="panel" role="tabpanel"></div>
+      <div class="result-actions">
+        <button id="adopt" class="button quiet small" type="button">Copy into my research network</button>
+      </div>
+      <p class="provenance" id="provenance"></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Uses the public ORCID API. An independent project, not an official ORCID service. A link between two members means only that both public records assert the same DOI; it does not prove collaboration, and records may be incomplete.</p>
+  </footer>
+</body>
+</html>

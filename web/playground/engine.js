@@ -1,7 +1,8 @@
 // Web Worker: runs the orcid_biosketch package under Pyodide, in the visitor's browser.
-// Requests reach only the public ORCID API; the network workspace stays in this
+// Requests leave the site only for the public ORCID API; the network workspace stays in this
 // browser's IndexedDB and is never sent anywhere.
-const PYODIDE = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
+// Served by this site with pinned hashes (scripts/build_site.py), not from a CDN.
+const PYODIDE = '/pyodide/0.26.4/';
 const WORKSPACE = '/workspace';
 const ORCID_HOSTS = new Set(['pub.orcid.org']);
 const REQUEST_TIMEOUT_MS = 30000;
@@ -73,6 +74,12 @@ const operations = {
   },
   async fortune({ engine }, { biosketch, seed }) {
     return engine.fortune(biosketch, seed);
+  },
+  async member({ engine }, { orcid }) {
+    return engine.member(orcid);
+  },
+  async group({ engine }, { name, bios }) {
+    return engine.group(name, bios);
   },
   async api(state, { method, target, body }) {
     const file = `${WORKSPACE}/network.sqlite3`;

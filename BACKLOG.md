@@ -61,6 +61,7 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | KF-12 | Roster assertion export contract (#9) | P1 | in-review | session |
 | INF-08 | Static public showcase hosted on GCP | P2 | done | session |
 | INF-10 | Hosted in-browser playground (Studio + research network) | P1 | in-review | session |
+| KF-13 | Shareable group links and evidence-backed collaboration graph (#15) | P1 | in-review | session |
 | INF-09 | Hosted multi-researcher service on Cloud Run | P2 | planned | — |
 
 ---
@@ -630,7 +631,26 @@ the OpenID Connect implicit flow and verifies the ID token in the browser.
 - [x] Loopback server behaviour unchanged (`tests/test_network_http.py`, `tests/test_group_http.py`).
 - [x] Audit fixes: live channel only from `main`; cross-tab Web Lock prevents workspace overwrites; links ask before importing; engine recovers from a failed start (headless Chrome: two tabs, blocked runtime).
 - [ ] ORCID public API client registered and `ORCID_CLIENT_ID` variable set; sign-in verified live.
+- [x] Pyodide served from the site with pinned SHA-256 hashes; CSP has no third-party origin (`tests/test_site.py`, #14).
 - [ ] Promoted to the live channel after review.
+
+---
+
+## KF-13 — Shareable group links and collaboration graph
+
+- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Files** `src/orcid_biosketch/collaboration.py`, `web/playground/group.html`, `web/playground/group.js`,
+  `web/playground/group-link.js`, `tests/test_collaboration.py`
+
+Phase 1 of issue #15. A group link holds only a name and public ORCID iDs in the
+URL fragment. Records are read on request, and two members are linked only when
+both records assert the same DOI, with those DOIs listed on the link.
+
+**Acceptance criteria**
+- [x] Edges only from DOIs asserted by both records; none from titles or names (`tests/test_collaboration.py`).
+- [x] The link discloses exactly what it contains; roles, contributions and requests are never included; sample people are excluded.
+- [x] Records are read only on request, per member, with retry; nothing is stored unless the visitor copies the group into their network (confirmed).
+- [x] Untrusted names render as text in the graph and lists (headless Chrome with an injection payload).
 
 ---
 
@@ -744,3 +764,5 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-30 | KF-10, KF-11 | Network pilot (PR #7) merged to main; coordinator feedback (#8) still pending | merged |
 | 2026-10-30 | INF-10 | In-browser playground: Studio, network on Pyodide, optional ORCID sign-in | — → in-review |
 | 2026-10-30 | INF-10 | Audit: deploy hardening, cross-tab workspace lock, confirmed handoffs, engine recovery, identity check | fix |
+| 2026-10-30 | INF-10 | Pyodide self-hosted with pinned hashes; Studio tabs keyboard-accessible (#14) | fix |
+| 2026-10-30 | KF-13 | Shareable group links, collaboration graph, group heatmap and bibliography (#15 phase 1) | — → in-review |

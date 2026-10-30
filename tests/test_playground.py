@@ -111,3 +111,14 @@ def test_workspace_rejects_non_finite_json_like_the_server(tmp_path):
     workspace = playground.Workspace(str(tmp_path / "w.sqlite3"))
     reply = json.loads(workspace.request("POST", "/api/groups", '{"name": "x", "member_ids": [], "n": NaN}'))
     assert reply["status"] == 400
+
+
+def test_member_and_group_outputs_from_public_records(browser):
+    browser({"/record": [200, json.dumps(RECORD), None]})
+    one = json.loads(playground.member(ORCID))
+    other = json.loads(json.dumps(one))
+    other["person"]["orcid"], other["person"]["name"] = "0000-0002-1825-0097", "Other"
+    result = json.loads(playground.group("Lab", json.dumps([one, other])))
+    shared = {w["identifiers"]["doi"] for w in one["works"] if w["identifiers"].get("doi")}
+    assert {o["doi"] for e in result["graph"]["edges"] for o in e["outputs"]} == {d.lower() for d in shared}
+    assert result["heatmap_svg"].startswith("<svg") and all(w["asserted_by"] for w in result["bibliography"])

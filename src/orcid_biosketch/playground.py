@@ -16,6 +16,7 @@ from email.message import Message
 from typing import Any, Callable
 
 from . import exporters, fun
+from .collaboration import collaboration_graph, group_bibliography
 from . import lint as quality
 from .core import OrcidError, build_biosketch, fetch_orcid_record, normalize_orcid, render_markdown, to_jsonld
 from .network import dispatch, import_public_record
@@ -78,6 +79,24 @@ def profile(value: str) -> str:
 def profile_from_biosketch(text: str) -> str:
     """Render a stored biosketch, such as the site's own sample, without the network."""
     return json.dumps(outputs(json.loads(text)), ensure_ascii=False)
+
+
+def member(value: str) -> str:
+    """One group member's public record summary, read on the visitor's request."""
+    return json.dumps(import_public_record(value), ensure_ascii=False)
+
+
+def group(name: str, bios_text: str) -> str:
+    """Group outputs built only from the members' asserted records."""
+    bios = json.loads(bios_text)
+    works = group_bibliography(bios)
+    combined = {"person": {"name": name}, "works": works}
+    return json.dumps({
+        "graph": collaboration_graph(bios),
+        "bibliography": works,
+        "heatmap_svg": fun.heatmap_svg(combined),
+        "bibtex": exporters.to_bibtex(combined),
+    }, ensure_ascii=False)
 
 
 def fortune(text: str, seed: int) -> str:
