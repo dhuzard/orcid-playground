@@ -9,6 +9,7 @@ let bios = new Map();
 let failures = new Map();
 let result = null;
 let membersJson = '[]';
+let extras = null;
 let objectUrls = [];
 
 function el(tag, attrs = {}, ...children) {
@@ -94,6 +95,7 @@ async function readMembers(ids) {
   try {
     membersJson = JSON.stringify(ordered);
     result = JSON.parse(await call('group', { name: group.name, bios: membersJson }));
+    extras = JSON.parse(await call('extras', { name: group.name, bios: membersJson }));
   } catch (error) {
     return say(`Could not build the group view: ${error.message}`, { error: true });
   }
@@ -202,6 +204,44 @@ const TABS = {
     tools.append(picker);
     build();
     return [el('p', { class: 'muted' }, 'A draft team document: a summary, the outputs whose DOI appears in several members’ records, then each member’s funder template. Roles and contributions are not in the link; add them before use.'), tools, view];
+  },
+  Wrapped() {
+    const data = extras.wrapped;
+    return [el('p', { class: 'muted' }, `The group’s ${data.year || ''} in review, from outputs merged by DOI. Each member’s count comes from their own record.`),
+      el('div', { class: 'tools' }, download('Text', extras.wrapped_text, 'group-wrapped.txt', 'text/plain'), download('JSON', JSON.stringify(data, null, 2), 'group-wrapped.json', 'application/json')),
+      el('pre', { class: 'terminal' }, extras.wrapped_text)];
+  },
+  'Card deck'() {
+    const zip = Uint8Array.from(atob(extras.deck_zip_b64), c => c.charCodeAt(0));
+    const zipUrl = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }));
+    objectUrls.push(zipUrl);
+    const deck = el('div', { class: 'deck' }, extras.deck.map(card => {
+      const url = URL.createObjectURL(new Blob([card.svg], { type: 'image/svg+xml' }));
+      objectUrls.push(url);
+      return el('img', { src: url, alt: `Trading card for ${card.name}`, width: 320, height: 440 });
+    }));
+    return [el('p', { class: 'muted' }, 'One card per member, each built only from that member’s record.'),
+      el('div', { class: 'tools' }, el('button', { class: 'button quiet small', type: 'button', onclick: () => {
+        document.body.classList.add('print-deck');
+        addEventListener('afterprint', () => document.body.classList.remove('print-deck'), { once: true });
+        window.print();
+      } }, 'Print the deck'), el('a', { class: 'button quiet small', href: zipUrl, download: 'group-cards.zip' }, '↓ All cards (ZIP)')),
+      deck];
+  },
+  Embed() {
+    const snapshot = JSON.stringify(extras.snapshot, null, 2);
+    const snippet = `<script type="module" src="${location.origin}/orcid-group.js"></script>\n<orcid-group src="/group.json"></orcid-group>`;
+    const preview = el('orcid-group', { src: URL.createObjectURL(new Blob([snapshot], { type: 'application/json' })), limit: '10' });
+    objectUrls.push(preview.getAttribute('src'));
+    import('/orcid-group.js');
+    return [el('p', {}, 'Show this group on a lab website. Host the snapshot file next to your page and paste the snippet. The widget reads only that file; refresh it by downloading a new snapshot.'),
+      el('div', { class: 'tools' }, download('Snapshot (group.json)', snapshot, 'group.json', 'application/json'),
+        el('button', { class: 'button quiet small', type: 'button', onclick: async () => {
+          try { await navigator.clipboard.writeText(snippet); say('Snippet copied.'); } catch { say('Select the snippet and copy it.'); }
+        } }, 'Copy snippet')),
+      el('pre', {}, snippet),
+      el('h3', {}, 'Preview'),
+      el('div', { class: 'embed-preview' }, preview)];
   },
   Heatmap() {
     const url = URL.createObjectURL(new Blob([result.heatmap_svg], { type: 'image/svg+xml' }));

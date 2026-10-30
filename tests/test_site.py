@@ -83,3 +83,22 @@ def test_group_view_and_hosted_share_button_are_built(tmp_path):
     files = build_site.build(tmp_path / "site", client_id="")
     assert {"group/index.html", "group.js", "group-link.js"} <= set(files)
     assert '<html lang="en" data-hosted="true">' in (tmp_path / "site" / "network" / "index.html").read_text(encoding="utf-8")
+
+
+def test_service_worker_is_stamped_with_the_site_digest_and_manifest_is_valid(tmp_path):
+    root = tmp_path / "repo"
+    for folder in ("generated", "web", "src"):
+        shutil.copytree(ROOT / folder, root / folder, ignore=shutil.ignore_patterns("__pycache__", "node_modules"))
+    worker = lambda name: (tmp_path / name / "sw.js").read_text(encoding="utf-8")
+    build_site.build(tmp_path / "a", root, client_id="")
+    build_site.build(tmp_path / "b", root, client_id="APP-X")
+    assert "__BUILD__" not in worker("a")
+    # Deterministic, and config.json (never cached by the worker) does not change the version.
+    assert worker("a") == worker("b")
+    (root / "web" / "playground" / "studio.js").write_text("// changed", encoding="utf-8")
+    build_site.build(tmp_path / "c", root, client_id="")
+    assert worker("c") != worker("a")
+    manifest = json.loads((tmp_path / "a" / "manifest.webmanifest").read_text(encoding="utf-8"))
+    assert all((tmp_path / "a" / icon["src"].lstrip("/")).is_file() for icon in manifest["icons"])
+    for page in ("index.html", "group/index.html", "network/index.html"):
+        assert 'rel="manifest"' in (tmp_path / "a" / page).read_text(encoding="utf-8"), page

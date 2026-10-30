@@ -1,0 +1,19 @@
+{
+  "name": "ORCID Playground",
+  "short_name": "ORCID Play",
+  "description": "Explore public ORCID records and research groups, in your browser.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f7f2",
+  "theme_color": "#143d37",
+  "icons": [
+    {"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml"},
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Research network", "url": "/network/"},
+    {"name": "Group view", "url": "/group/"}
+  ]
+}
