@@ -30,6 +30,22 @@ works endpoint so citation exports include contributors, and fetches preferred
 funding entries so amounts and currencies are preserved. Pass `--summary-only`
 to skip those detail requests when a faster summary is sufficient.
 
+## Hosted playground
+
+The playground runs everything in the visitor's browser: try it at
+<https://orcid-playground-889.web.app> once promoted from preview.
+
+- **Studio** (`/`): enter any ORCID iD, or sign in with ORCID, for the biosketch,
+  trading card, heatmap, wrapped, fortune, record check, funder templates and
+  BibTeX/RIS/CSL/JSON-LD downloads.
+- **Research network** (`/network/`): the pilot below, with its workspace stored
+  only in that browser.
+
+The package runs under [Pyodide](https://pyodide.org) in a Web Worker and reads
+only the public ORCID API; the site has no server-side code. Build it with
+`python scripts/build_site.py site`. Hosting and sign-in setup are in
+[docs/gcp-hosting.md](docs/gcp-hosting.md).
+
 ## Local research network pilot
 
 An early pilot adds **Feed, People, Groups, and Saved** to the biosketch tools.

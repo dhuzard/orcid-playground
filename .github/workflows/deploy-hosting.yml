@@ -1,4 +1,4 @@
-name: Deploy showcase (Firebase Hosting)
+name: Deploy playground (Firebase Hosting)
 on:
   workflow_dispatch:
     inputs:
@@ -10,35 +10,51 @@ on:
     types: [completed]
   push:
     branches: [main]
-    paths: ["generated/**", "web/**", "examples/plain-html.html", "firebase.json", "scripts/build_site.py"]
+    paths: ["generated/**", "web/**", "src/**", "firebase.json", "scripts/build_site.py"]
 permissions:
   contents: read
   id-token: write
 concurrency:
-  group: deploy-hosting
+  # One queue per channel, so a branch preview never cancels a deploy from main.
+  group: deploy-hosting-${{ github.event.inputs.channel || 'preview' }}
   cancel-in-progress: true
 jobs:
   deploy:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
+      - name: Check the requested channel
+        env:
+          CHANNEL: ${{ github.event.inputs.channel || 'preview' }}
+          REF: ${{ github.ref }}
+        run: |
+          if ! [[ "$CHANNEL" =~ ^[a-z0-9-]{1,40}$ ]]; then
+            echo "::error::Channel must be lowercase letters, digits and hyphens"; exit 1
+          fi
+          if [ "$CHANNEL" = "live" ] && [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "$REF" != "refs/heads/main" ]; then
+            echo "::error::Only main can be deployed to the live channel"; exit 1
+          fi
       - uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || 'main' }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: python scripts/build_site.py site
+        env:
+          ORCID_CLIENT_ID: ${{ vars.ORCID_CLIENT_ID }}
       - name: Authenticate to Google Cloud (Workload Identity Federation, no stored keys)
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
-      - name: Deploy to preview channel
+      - name: Deploy
+        env:
+          CHANNEL: ${{ github.event.inputs.channel || 'preview' }}
+          PROJECT: ${{ vars.GCP_PROJECT_ID }}
         run: |
-          CHANNEL="${{ github.event.inputs.channel || 'preview' }}"
           if [ "$CHANNEL" = "live" ]; then
-            npx --yes firebase-tools@13.29.1 deploy --only hosting --project "${{ vars.GCP_PROJECT_ID }}"
+            npx --yes firebase-tools@13.29.1 deploy --only hosting --project "$PROJECT"
           else
-            npx --yes firebase-tools@13.29.1 hosting:channel:deploy "$CHANNEL" --expires 30d --project "${{ vars.GCP_PROJECT_ID }}"
+            npx --yes firebase-tools@13.29.1 hosting:channel:deploy "$CHANNEL" --expires 30d --project "$PROJECT"
           fi
