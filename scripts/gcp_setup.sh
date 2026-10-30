@@ -3,7 +3,7 @@
 # Run once, by a project owner, after `gcloud auth login`. Idempotent where gcloud allows.
 set -euo pipefail
 
-PROJECT_ID="${PROJECT_ID:-neuronautix-506707}"   # GCP project IDs are lowercase
+PROJECT_ID="${PROJECT_ID:-orcid-playground-889}"   # GCP project IDs are lowercase
 REPO="${REPO:-dhuzard/orcid-playground}"
 SA="gh-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
 PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
