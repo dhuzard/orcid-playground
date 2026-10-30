@@ -49,7 +49,7 @@ Note the CI-created commit from `sync.yml` uses `GITHUB_TOKEN`, which does not t
 
 ## One-time GCP setup for the static showcase
 
-Project: `neuronautix-506707`. Run `scripts/gcp_setup.sh` as a project owner; it does everything below and prints the three GitHub variables to set. The commands are kept here for reference.
+Project: `orcid-playground-889` (Firebase site `orcid-playground-889.web.app`). Run `scripts/gcp_setup.sh` as a project owner; it does everything below and prints the three GitHub variables to set. The commands are kept here for reference.
 
 ```bash
 gcloud projects create PROJECT_ID && gcloud billing projects link PROJECT_ID --billing-account=ACCOUNT
