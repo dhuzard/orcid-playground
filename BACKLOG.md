@@ -59,7 +59,8 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | FUN-08 | Deterministic career poster | P3 | deferred | — |
 | FUN-09 | Academic family tree | P3 | deferred | — |
 | KF-12 | Roster assertion export contract (#9) | P1 | in-review | session |
-| INF-08 | Static public showcase hosted on GCP | P2 | in-progress | session |
+| INF-08 | Static public showcase hosted on GCP | P2 | done | session |
+| INF-10 | Hosted in-browser playground (Studio + research network) | P1 | in-review | session |
 | INF-09 | Hosted multi-researcher service on Cloud Run | P2 | planned | — |
 
 ---
@@ -595,16 +596,40 @@ but rejected by the CLI, and missing affiliation dates are rendered as
 
 ## INF-08 — Static public showcase hosted on GCP
 
-- **Priority** P2 · **Status** in-progress · **Owner** session · **Rev** r2
+- **Priority** P2 · **Status** done · **Owner** session · **Rev** r3
 - **Files** `docs/gcp-hosting.md`, `scripts/build_site.py`, `firebase.json`, `.github/workflows/deploy-hosting.yml`
 
-Pipeline built and tested locally (`tests/test_site.py`); not yet run against a GCP project. See [docs/gcp-hosting.md](docs/gcp-hosting.md).
+Deployed to Firebase Hosting project `orcid-playground-889` (preview channel) by
+workflow run 41071880181 on 2026-10-30. Superseded in scope by INF-10. See
+[docs/gcp-hosting.md](docs/gcp-hosting.md).
 
 **Acceptance criteria**
 - [x] Site contains only `generated/` and `web/` outputs (`tests/test_site.py`).
 - [x] Deploy workflow uses Workload Identity Federation, no stored keys.
 - [x] The network pilot (PR #7) is not exposed publicly.
-- [ ] GCP project, WIF and repository variables created; preview channel URL shared.
+- [x] GCP project, WIF and repository variables created; preview channel URL shared (run 41071880181).
+
+---
+
+## INF-10 — Hosted in-browser playground
+
+- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Files** `web/playground/`, `src/orcid_biosketch/playground.py`, `src/orcid_biosketch/network.py`,
+  `scripts/build_site.py`, `firebase.json`, `tests/test_playground.py`, `tests/test_site.py`
+
+Anyone can explore any public ORCID record and the multi-ORCID research network
+without a server: the package runs under Pyodide in a Web Worker, the network
+workspace is kept in the visitor's IndexedDB, and the pilot's routes are shared
+with the loopback server through `network.dispatch`. Optional ORCID sign-in uses
+the OpenID Connect implicit flow and verifies the ID token in the browser.
+
+**Acceptance criteria**
+- [x] Studio renders every single-record output from a typed iD or the stored sample (`tests/test_playground.py`; headless Chrome against Firebase headers).
+- [x] The unchanged pilot app runs on the browser engine; workspace persists across reloads; team pack ZIP downloads (headless Chrome).
+- [x] No server-side state; network data never leaves the browser; strict CSP without `unsafe-eval`.
+- [x] Loopback server behaviour unchanged (`tests/test_network_http.py`, `tests/test_group_http.py`).
+- [ ] ORCID public API client registered and `ORCID_CLIENT_ID` variable set; sign-in verified live.
+- [ ] Promoted to the live channel after review.
 
 ---
 
@@ -714,3 +739,6 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-30 | INF-08 | GCP hosting strategy documented in docs/gcp-hosting.md; no deployment yet | — → planned |
 | 2026-10-30 | INF-08 | Static site builder, Firebase config and preview-channel deploy workflow added | planned → in-progress |
 | 2026-10-30 | INF-09 | Hosted multi-researcher service designed and gated on auth; pilot not deployable as is | — → planned |
+| 2026-10-30 | INF-08 | Preview deployed to orcid-playground-889 (run 41071880181) | in-progress → done |
+| 2026-10-30 | KF-10, KF-11 | Network pilot (PR #7) merged to main; coordinator feedback (#8) still pending | merged |
+| 2026-10-30 | INF-10 | In-browser playground: Studio, network on Pyodide, optional ORCID sign-in | — → in-review |

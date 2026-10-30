@@ -60,6 +60,85 @@ def import_public_record(value: str) -> dict:
     return bio
 
 
+
+JSON_TYPE = "application/json; charset=utf-8"
+
+
+def dispatch(store, importer, method: str, target: str, payload: dict | None = None):
+    """Route one pilot API request to the workspace.
+
+    Shared by the loopback server and the in-browser playground, which has no
+    HTTP server. Returns ``(status, data, content_type, filename)``; unexpected
+    errors propagate so each caller can log them in its own way.
+    """
+    split = urlsplit(target)
+    path = split.path
+    try:
+        if method == "GET":
+            if path == "/api/state":
+                return 200, store.state(), JSON_TYPE, None
+            if match := re.fullmatch(r"/api/groups/([a-zA-Z0-9_-]+)/export", path):
+                query = parse_qs(split.query, keep_blank_values=True)
+                if set(query) - {"scope", "from", "to", "members"} or any(len(values) != 1 for values in query.values()):
+                    raise ValueError("Unsupported or repeated export options.")
+                options = {key: values[0] for key, values in query.items()}
+                data = store.export_group(
+                    match.group(1), scope=options.get("scope", "members"),
+                    date_from=options.get("from", ""), date_to=options.get("to", ""),
+                    member_ids=options["members"].split(",") if "members" in options else None,
+                )
+                return 200, data, "application/zip", "team-pack.zip"
+            return 404, {"error": "Not found."}, JSON_TYPE, None
+        if not isinstance(payload, dict):
+            raise ValueError("Expected a JSON object.")
+        if path == "/api/demo":
+            store.add_demo()
+        elif path == "/api/import":
+            value = payload.get("orcid")
+            if not isinstance(value, str):
+                raise ValueError("An ORCID iD is required.")
+            store.import_biosketch(importer(value))
+        elif path in ("/api/follow", "/api/save"):
+            key = "following" if path == "/api/follow" else "saved"
+            if not isinstance(payload.get("id"), str) or type(payload.get(key)) is not bool:
+                raise ValueError(f"Expected an id and a boolean {key} value.")
+            (store.follow if key == "following" else store.save)(payload["id"], payload[key])
+        elif path in ("/api/groups", "/api/groups/update"):
+            args = (payload.get("name"), payload.get("description", ""), payload.get("member_ids", []))
+            if path == "/api/groups":
+                store.create_group(*args)
+            else:
+                if not isinstance(payload.get("id"), str):
+                    raise ValueError("A group id is required.")
+                store.update_group(payload["id"], *args)
+        elif path in ("/api/groups/members/add", "/api/groups/member", "/api/groups/output",
+                      "/api/groups/requests", "/api/groups/requests/update"):
+            group_id = payload.get("id")
+            if not isinstance(group_id, str):
+                raise ValueError("A group id is required.")
+            if path == "/api/groups/members/add":
+                store.add_group_members(group_id, payload.get("member_ids"))
+            elif path == "/api/groups/member":
+                store.set_group_member(group_id, payload.get("person_id"),
+                                       payload.get("role", ""), payload.get("expertise", ""),
+                                       payload.get("contribution", ""))
+            elif path == "/api/groups/output":
+                store.select_group_work(group_id, payload.get("work_id"), payload.get("selected"))
+            elif path == "/api/groups/requests":
+                store.create_group_request(group_id, payload.get("title"), payload.get("description", ""),
+                                           payload.get("owner_id"), payload.get("due_date", ""))
+            else:
+                store.set_group_request_status(group_id, payload.get("request_id"), payload.get("status"))
+        else:
+            return 404, {"error": "Not found."}, JSON_TYPE, None
+        return 200, store.state(), JSON_TYPE, None
+    except OrcidError as error:
+        return 502, {"error": str(error)}, JSON_TYPE, None
+    except (ValueError, UnicodeDecodeError) as error:
+        return 400, {"error": str(error)}, JSON_TYPE, None
+    except TimeoutError:
+        return 408, {"error": "The request timed out. Please try again."}, JSON_TYPE, None
+
 class PilotHandler(BaseHTTPRequestHandler):
     server: PilotServer
 
@@ -116,24 +195,12 @@ class PilotHandler(BaseHTTPRequestHandler):
             return
         path = urlsplit(self.path).path
         try:
-            if path == "/api/state":
-                self.send_payload(200, self.server.store.state())
-            elif match := re.fullmatch(r"/api/groups/([a-zA-Z0-9_-]+)/export", path):
-                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True)
-                if set(query) - {"scope", "from", "to", "members"} or any(len(values) != 1 for values in query.values()):
-                    raise ValueError("Unsupported or repeated export options.")
-                options = {key: values[0] for key, values in query.items()}
-                data = self.server.store.export_group(
-                    match.group(1), scope=options.get("scope", "members"),
-                    date_from=options.get("from", ""), date_to=options.get("to", ""),
-                    member_ids=options["members"].split(",") if "members" in options else None,
-                )
-                self.send_payload(200, data, "application/zip", filename="team-pack.zip")
-            elif path in ASSETS:
+            if path in ASSETS:
                 name, mime = ASSETS[path]
                 self.send_payload(200, (self.server.assets / name).read_bytes(), mime)
             else:
-                self.send_payload(404, {"error": "Not found."})
+                status, data, mime, filename = dispatch(self.server.store, self.server.importer, "GET", self.path)
+                self.send_payload(status, data, mime, filename=filename)
         except ValueError as error:
             self.send_payload(400, {"error": str(error)})
         except FileNotFoundError:
@@ -161,53 +228,8 @@ class PilotHandler(BaseHTTPRequestHandler):
             def invalid_constant(value):
                 raise ValueError("Non-finite JSON values are not supported.")
             payload = json.loads(raw, parse_constant=invalid_constant)
-            if not isinstance(payload, dict):
-                raise ValueError("Expected a JSON object.")
-            path = urlsplit(self.path).path
-            store = self.server.store
-            if path == "/api/demo":
-                store.add_demo()
-            elif path == "/api/import":
-                value = payload.get("orcid")
-                if not isinstance(value, str):
-                    raise ValueError("An ORCID iD is required.")
-                bio = self.server.importer(value)
-                store.import_biosketch(bio)
-            elif path in ("/api/follow", "/api/save"):
-                key = "following" if path == "/api/follow" else "saved"
-                if not isinstance(payload.get("id"), str) or type(payload.get(key)) is not bool:
-                    raise ValueError(f"Expected an id and a boolean {key} value.")
-                (store.follow if key == "following" else store.save)(payload["id"], payload[key])
-            elif path in ("/api/groups", "/api/groups/update"):
-                args = (payload.get("name"), payload.get("description", ""), payload.get("member_ids", []))
-                if path == "/api/groups":
-                    store.create_group(*args)
-                else:
-                    if not isinstance(payload.get("id"), str):
-                        raise ValueError("A group id is required.")
-                    store.update_group(payload["id"], *args)
-            elif path in ("/api/groups/members/add", "/api/groups/member", "/api/groups/output",
-                          "/api/groups/requests", "/api/groups/requests/update"):
-                group_id = payload.get("id")
-                if not isinstance(group_id, str):
-                    raise ValueError("A group id is required.")
-                if path == "/api/groups/members/add":
-                    store.add_group_members(group_id, payload.get("member_ids"))
-                elif path == "/api/groups/member":
-                    store.set_group_member(group_id, payload.get("person_id"),
-                                           payload.get("role", ""), payload.get("expertise", ""),
-                                           payload.get("contribution", ""))
-                elif path == "/api/groups/output":
-                    store.select_group_work(group_id, payload.get("work_id"), payload.get("selected"))
-                elif path == "/api/groups/requests":
-                    store.create_group_request(group_id, payload.get("title"), payload.get("description", ""),
-                                               payload.get("owner_id"), payload.get("due_date", ""))
-                else:
-                    store.set_group_request_status(group_id, payload.get("request_id"), payload.get("status"))
-            else:
-                self.send_payload(404, {"error": "Not found."})
-                return
-            self.send_payload(200, store.state())
+            status, data, mime, filename = dispatch(self.server.store, self.server.importer, "POST", self.path, payload)
+            self.send_payload(status, data, mime, filename=filename)
         except OrcidError as error:
             self.send_payload(502, {"error": str(error)})
         except (ValueError, UnicodeDecodeError) as error:

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#143d37">
+  <meta name="description" content="Explore any public ORCID record: biosketch, trading card, publication heatmap, wrapped, record check, funder templates, citations, and a research network for working groups. Runs in your browser.">
+  <link rel="icon" href="data:,">
+  <title>ORCID Playground</title>
+  <link rel="stylesheet" href="/playground.css">
+  <script type="module" src="/orcid-biosketch.js"></script>
+  <script type="module" src="/studio.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">o.</span> ORCID Playground</a>
+    <nav aria-label="Main">
+      <a href="/" aria-current="page">Studio</a>
+      <a href="/network/">Research network</a>
+      <a href="https://github.com/dhuzard/orcid-playground" target="_blank" rel="noopener noreferrer">Source ↗</a>
+    </nav>
+    <div class="account" id="account"></div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero">
+      <div class="eyebrow">ONE RECORD, MANY OUTPUTS</div>
+      <h1>Play with any public ORCID record.</h1>
+      <p class="lede">Enter an ORCID iD to get a biosketch, a trading card, a publication heatmap, your year in review, a record check, funder templates and citations, all generated in your browser from what the record asserts.</p>
+      <form id="lookup" class="lookup" novalidate>
+        <label for="orcid" class="visually-hidden">ORCID iD</label>
+        <input id="orcid" name="orcid" inputmode="text" autocomplete="off" spellcheck="false" placeholder="0000-0002-1825-0097 or https://orcid.org/…" required>
+        <button type="submit" class="button accent">Explore</button>
+      </form>
+      <div class="try">Or try: <button type="button" class="chip" data-sample>The maintainer's profile (stored, offline)</button> <button type="button" class="chip" data-orcid="0000-0002-1825-0097">Josiah Carberry, ORCID's test record</button> <span id="mine"></span></div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="result" class="result" hidden>
+      <header class="result-head">
+        <div>
+          <div class="eyebrow" id="r-orcid"></div>
+          <h2 id="r-name"></h2>
+          <p id="r-headline" class="muted"></p>
+        </div>
+        <div class="grade" id="r-grade" title="Record check score"></div>
+      </header>
+      <div class="result-actions">
+        <a id="to-network" class="button accent small" href="/network/">Add to my research network →</a>
+        <a id="on-orcid" class="button quiet small" target="_blank" rel="noopener noreferrer">View on ORCID ↗</a>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Outputs" id="tabs"></div>
+      <div id="panel" class="panel" role="tabpanel"></div>
+      <p class="provenance" id="r-provenance"></p>
+    </section>
+
+    <section class="network-teaser">
+      <div>
+        <div class="eyebrow">MULTI-ORCID</div>
+        <h2>Bring your working group together.</h2>
+        <p>Follow researchers and see their new outputs in one feed. Build a working group from a pasted list of ORCID iDs, pick the project's outputs, track requests, and download a team pack with the roster, a deduplicated bibliography and every member's biosketch.</p>
+        <p class="muted">Your network is stored only in this browser. Group membership and roles are curated by you and are not confirmed by the people listed.</p>
+        <div class="result-actions">
+          <a class="button accent" href="/network/#groups">Open the research network →</a>
+          <a class="button quiet" href="/network/?sample=1#groups">See it with sample data</a>
+        </div>
+      </div>
+      <ol class="steps">
+        <li><b>Paste ORCID iDs</b><span>Up to 50 at a time, checked before import.</span></li>
+        <li><b>Curate the group</b><span>Roles, expertise and contributions, recorded locally.</span></li>
+        <li><b>Select project outputs</b><span>Deduplicated across members by DOI.</span></li>
+        <li><b>Download a team pack</b><span>Roster, bibliography and biosketches, filtered by member and date.</span></li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Uses the public ORCID API. An independent project, not an official ORCID service. Outputs only re-express what a record asserts; a valid ORCID iD is not proof of identity, and records may be incomplete or out of date.</p>
+    <p>Everything runs in your browser. The site has no server-side code and stores nothing about you.</p>
+  </footer>
+</body>
+</html>
