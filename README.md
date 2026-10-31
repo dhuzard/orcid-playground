@@ -33,7 +33,9 @@ to skip those detail requests when a faster summary is sufficient.
 ## Hosted playground
 
 The playground runs everything in the visitor's browser: try it at
-<https://orcid-playground-889.web.app> once promoted from preview.
+<https://orcid-playground-889.web.app>. Every merge to `main` and the weekly
+ORCID sync deploy it automatically; branches can be previewed on demand (see
+[docs/gcp-hosting.md](docs/gcp-hosting.md)).
 
 - **Studio** (`/`): enter any ORCID iD, or sign in with ORCID, for the biosketch,
   trading card, heatmap, wrapped, fortune, record check, funder templates and
@@ -157,7 +159,7 @@ family trees reconstructed from education entries (FUN-09).
 
 ## Automatic synchronization
 
-The included GitHub Actions workflow refreshes the generated files daily and commits only when the ORCID-derived output changes. The generated timestamp is derived from ORCID's record modification time, preventing meaningless daily commits. It can also be run manually from **Actions → Synchronize ORCID biosketch → Run workflow**.
+The included GitHub Actions workflow refreshes the generated files weekly (Monday 04:17 UTC) and commits only when the ORCID-derived output changes; a successful run then redeploys the hosted playground. The generated timestamp is derived from ORCID's record modification time, preventing meaningless commits. It can also be run manually from **Actions → Synchronize ORCID biosketch → Run workflow**.
 
 Git commits create an auditable history. The existing scheduled workflow is
 separate from the local network pilot, which only refreshes on request. ORCID's

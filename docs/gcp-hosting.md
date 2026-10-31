@@ -23,11 +23,61 @@ The CSP allows only `self`, `pub.orcid.org` and ORCID's JWKS, plus `wasm-unsafe-
 
 ## Sign in with ORCID (optional)
 
-Sign-in is optional; typing an iD works without it. It uses the OpenID Connect implicit flow (`response_type=id_token`, `scope=openid`). The browser verifies the ID token's RS256 signature against `https://orcid.org/oauth/jwks` and checks the issuer, audience, nonce and expiry. Only the iD and name are kept, in `sessionStorage`; no access token is requested.
+Sign-in is optional; typing an iD works without it. The button stays hidden until a client id is configured (BACKLOG INF-11).
 
-1. On <https://orcid.org/developer-tools>, register a **Public API** client while signed in with the ORCID account that should own it.
-2. Add these redirect URIs: `https://orcid-playground-889.web.app/` and the preview channel URL printed by the deploy run, with its trailing `/`.
-3. Set the GitHub repository variable `ORCID_CLIENT_ID` to the client ID (`APP-…`). It is public, not a secret. The build writes it into `config.json`; when it is empty, the sign-in button is hidden.
+### How it works
+
+- OpenID Connect **implicit flow** against `https://orcid.org/oauth/authorize` with `response_type=id_token token`, `scope=openid`, a random `state` and `nonce` (kept in `sessionStorage` for the tab) and `redirect_uri` = the site origin plus `/`.
+- ORCID documents the implicit flow only for the `token` and `id_token token` response types with the `openid` scope, accepts `nonce`, and returns the values in the URL fragment ([ORCID OpenID Connect technical documentation](https://github.com/ORCID/ORCID-Source/blob/main/orcid-web/ORCID_AUTH_WITH_OPENID_CONNECT.md), linked from the [ORCID OpenID FAQ](https://info.orcid.org/faq/what-is-openid)). Bare `id_token` is listed in the [discovery document](https://orcid.org/.well-known/openid-configuration) but not in that documentation, so it is not used.
+- The browser verifies the ID token's RS256 signature against `https://orcid.org/oauth/jwks` (key chosen by the token's `kid`) and checks `iss` = `https://orcid.org`, `aud` = the client id, `nonce`, and `exp` (5 minutes of clock skew allowed; ORCID tokens live 10 minutes). It keeps only `sub` (the ORCID iD) and `given_name` + `family_name`, in `sessionStorage`.
+- The short-lived access token that comes with `id_token token` is never read, stored or used; the whole fragment is removed from the address bar at once.
+- An `error` in the fragment (with the tab's `state`) or in the query string (while a sign-in is pending) is shown as "cancelled or refused".
+- `web/playground/auth.test.mjs` covers this offline with locally generated keys and signed tokens.
+
+A signed-in iD proves only that the visitor controls that ORCID account at that moment. It does not verify anything the record asserts.
+
+### Register the ORCID Public API client (free, once)
+
+The client belongs to the ORCID record of whoever registers it and cannot be transferred. The Public API is free for non-commercial use only ([Registering a Public API client](https://info.orcid.org/documentation/integration-guide/registering-a-public-api-client/)).
+
+1. Sign in at <https://orcid.org/signin> with the ORCID account that should own the client.
+2. Make sure the account has a **verified email address**. Developer Tools stays locked until it does; ORCID offers to resend the verification email.
+3. Open the menu under your name (top right) and choose **Developer tools** (<https://orcid.org/developer-tools>).
+4. Read and accept the ORCID Public API Terms of Service, then click **Register for ORCID Public API Credentials** (the label may differ slightly).
+5. Fill in the form:
+   - **Name**: `ORCID Playground` (shown to people on the ORCID consent screen).
+   - **Application URL** (website): `https://orcid-playground-889.web.app/`
+   - **Description**: for example `Optional sign-in for an in-browser playground that renders a researcher's public ORCID record into biosketches. Only the ORCID iD and name from the signed ID token are used, in the visitor's browser tab; nothing is stored on a server.`
+   - **Redirect URIs**: exactly `https://orcid-playground-889.web.app/` (HTTPS, with the trailing `/`).
+6. Click **Save my application and generate my client ID and secret** and copy the **Client ID** (`APP-` followed by 16 characters).
+
+Redirect URI rules ([API tutorial: get an authenticated ORCID iD](https://info.orcid.org/documentation/api-tutorials/api-tutorial-get-and-authenticated-orcid-id/)): only HTTPS is accepted in production; the domain must match exactly, including subdomains, and each subdomain must be registered separately; a host-only registration allows any path on that host, but registering the full URI is recommended. The site always sends `${location.origin}/`, so for the live site that is exactly `https://orcid-playground-889.web.app/`.
+
+Preview channels are served from other hostnames (`orcid-playground-889--<channel>-<hash>.web.app`), and a channel's hostname changes when it expires and is recreated. Add a preview URL (with its trailing `/`) only when you want to test sign-in there, and remove it afterwards. The alternative domain `orcid-playground-889.firebaseapp.com` would also need its own entry; it is not used.
+
+What is public and what is not:
+
+- The **client id** is public. It ends up in `config.json` and in every authorize URL.
+- The **client secret** is not needed by the implicit flow. Never put it in the repository, a repository variable, a secret used by this site, `config.json` or an issue. If it is ever exposed, reset it in Developer Tools.
+
+### Turn it on
+
+```bash
+gh variable set ORCID_CLIENT_ID --repo dhuzard/orcid-playground --body APP-XXXXXXXXXXXXXXXX
+gh workflow run deploy-hosting.yml --repo dhuzard/orcid-playground --ref main -f channel=live
+```
+
+Setting a variable is not a push, so nothing redeploys by itself; the manual `channel=live` run rebuilds the site with the new id (the next merge to `main` would also do it). The build writes the id into `config.json`; an empty value hides the button again. Check it with `curl -s https://orcid-playground-889.web.app/config.json`.
+
+### Manual test on the live site
+
+1. Open <https://orcid-playground-889.web.app/> in a private window. **Sign in with ORCID** appears top right. If not, check `config.json` and that the live deploy ran.
+2. Click it. ORCID's sign-in page opens and the address bar shows `response_type=id_token+token`, `scope=openid` and `redirect_uri=https%3A%2F%2Forcid-playground-889.web.app%2F`. A redirect URI error here means the registered URI does not match exactly.
+3. Sign in and authorize. You return to the Studio with your name (or iD) top right, the **My record** chip, and your public record loading. The address bar has no `#` fragment left.
+4. In DevTools, the Network tab shows one request to `https://orcid.org/oauth/jwks` and no CSP errors in the Console; Application > Session Storage holds `orcid-playground-signin` with only `orcid` and `name`.
+5. Click **Sign out**: the button returns. Sign in again and click **Deny** on ORCID's consent screen: you should return with "ORCID sign-in was cancelled or refused." and not be signed in. ORCID does not document where a denial is reported, so if you land elsewhere, note the URL (without any token) in issue #14.
+
+Then tick the INF-11 criteria in `BACKLOG.md` with the date and deploy run.
 
 ## Recommended: static site on Cloud Storage behind Cloud CDN
 
@@ -39,29 +89,39 @@ The site is static, so the cheapest and smallest-attack-surface option is a buck
 | **Firebase Hosting** (a GCP product) | Best for a quick shareable `*.web.app` URL | Free tier, managed TLS, one command deploy, preview channels for review |
 | Cloud Run (nginx container) | Overkill now | Only worthwhile when a server component such as the network pilot becomes a shared service |
 
-Start with **Firebase Hosting preview channels** to share a link this week, then move to bucket + CDN if a custom domain and IAM-governed hosting are wanted.
+Firebase Hosting is in use today (live site plus on-demand preview channels); move to bucket + CDN if a custom domain and IAM-governed hosting are wanted.
 
 ## Pipeline
 
-1. `sync.yml` already regenerates `generated/` daily and commits it.
-2. Add `deploy.yml`, triggered on push to `main` touching `generated/**` or `web/**` plus `workflow_dispatch`.
-3. It assembles `site/` by copying `generated/`, `web/orcid-biosketch.js` and `examples/plain-html.html` as `index.html` (with the component `src` pointed at the relative `generated/biosketch.json`), then runs `gcloud storage rsync --delete-unmatched-destination-objects` (or `firebase deploy`).
-4. Authenticate with **Workload Identity Federation** (`google-github-actions/auth`) restricted to this repository; the workflow itself refuses to deploy anything but `main` to the live channel. No service-account JSON keys in GitHub secrets.
-5. The deploy service account gets only `roles/storage.objectAdmin` on the one bucket.
+`.github/workflows/deploy-hosting.yml` builds `site/` with `scripts/build_site.py` and deploys it with a pinned `firebase-tools`:
 
-Note the CI-created commit from `sync.yml` uses `GITHUB_TOKEN`, which does not trigger other workflows. Either call the deploy as a final step of `sync.yml` or use `workflow_run`.
+| Trigger | Ref deployed | Channel | Environment |
+| --- | --- | --- | --- |
+| Push to `main` touching `generated/**`, `web/**`, `src/**`, `firebase.json` or `scripts/build_site.py` | `main` | `live` | `live` |
+| Successful weekly `sync.yml` run on `main` (`workflow_run`) | `main` | `live` | `live` |
+| Manual `workflow_dispatch` (default `channel=preview`) | the dispatched branch | temporary channel, 30-day expiry | `preview` |
+| Manual `workflow_dispatch` with `channel=live` | `main` only | `live` | `live` |
+
+1. `sync.yml` regenerates `generated/` weekly (Monday 04:17 UTC, or on demand) and commits only when the ORCID-derived output changes. That commit uses `GITHUB_TOKEN`, which does not trigger push workflows, so the deploy listens for the sync's `workflow_run` instead and redeploys `main` to live.
+2. Merging a pull request to `main` deploys the site to live; there is no manual promotion step.
+3. Feature branches are previewed on demand: **Actions → Deploy playground → Run workflow**, pick the branch, keep `channel=preview` (or another lowercase id). The run prints the temporary `*.web.app` URL.
+4. Two guards keep non-`main` code off live: the workflow refuses `channel=live` unless the ref is `refs/heads/main`, and the job runs in the GitHub deployment environment `live` (restricted to the `main` branch) for live deploys and `preview` (unrestricted) otherwise.
+5. Authenticate with **Workload Identity Federation** (`google-github-actions/auth`) restricted to this repository. No service-account JSON keys in GitHub secrets.
 
 ## Bucket settings
 
 - Uniform bucket-level access; public read via the load balancer backend bucket rather than `allUsers` on the bucket where a custom domain is used.
-- `Cache-Control: public, max-age=300` on JSON and `max-age=3600` on SVG. The daily sync makes longer caches pointless.
+- `Cache-Control: public, max-age=300` on JSON and `max-age=3600` on SVG. Regular syncs make longer caches pointless.
 - CORS on `generated/*` allowing `GET` from sites that embed the component.
 - Headers: `Content-Security-Policy: default-src 'self'; img-src 'self' data:; script-src 'self'`, `X-Content-Type-Options: nosniff`. SVGs are served as `image/svg+xml` and only embedded through `<img>`, never inlined, because ORCID text is untrusted.
 - Pin the component by tag or commit rather than `@main` on the jsDelivr URL for any site you do not control.
 
 ## Decisions taken
 
-- Share through **Firebase Hosting preview channels** first (30-day expiry, `*.web.app` URL). Promote to `live` by running the workflow manually with `channel=live`.
+- `main` is the live site: every merge to `main` and every successful weekly ORCID sync deploys to the Firebase Hosting `live` channel automatically.
+- ORCID data are refreshed **weekly**, not daily, to stay well clear of continuous polling.
+- Branch previews are on demand only, through `workflow_dispatch` to a temporary 30-day preview channel.
+- GitHub deployment environments are the server-side guard: `live` accepts only `main`, `preview` accepts any branch.
 - Region: **EU**. Firebase Hosting itself is served from Google's global CDN and has no region setting. The EU choice applies to everything that stores data: Cloud Run `europe-west1`, Firestore/Cloud SQL `eur3`/`europe-west1`, buckets `EU`.
 
 ## One-time GCP setup for the static showcase

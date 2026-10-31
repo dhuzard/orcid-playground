@@ -15,7 +15,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
       - run: pytest -q
-      - run: node --test web/orcid-biosketch.test.mjs web/orcid-group.test.mjs web/network/app.test.mjs web/playground/digest.test.mjs
+      - run: node --test web/orcid-biosketch.test.mjs web/orcid-group.test.mjs web/network/app.test.mjs web/playground/digest.test.mjs web/playground/auth.test.mjs
 
   rules:
     # Firestore security rules for private team workspaces, in the emulator.
