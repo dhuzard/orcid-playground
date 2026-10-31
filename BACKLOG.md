@@ -60,10 +60,11 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | FUN-09 | Academic family tree | P3 | deferred | — |
 | KF-12 | Roster assertion export contract (#9) | P1 | in-review | session |
 | INF-08 | Static public showcase hosted on GCP | P2 | done | session |
-| INF-10 | Hosted in-browser playground (Studio + research network) | P1 | in-review | session |
-| KF-13 | Shareable group links and evidence-backed collaboration graph (#15) | P1 | in-review | session |
-| KF-14 | Group record health and team biosketch for funders (#15 phase 2) | P1 | in-review | session |
-| KF-15 | Group Wrapped, card deck, <orcid-group> widget, offline app and digest (#15 phase 3) | P2 | in-review | session |
+| INF-10 | Hosted in-browser playground (Studio + research network) | P1 | done | session |
+| INF-11 | ORCID sign-in on the hosted playground, verified live | P2 | planned | — |
+| KF-13 | Shareable group links and evidence-backed collaboration graph (#15) | P1 | done | session |
+| KF-14 | Group record health and team biosketch for funders (#15 phase 2) | P1 | done | session |
+| KF-15 | Group Wrapped, card deck, <orcid-group> widget, offline app and digest (#15 phase 3) | P2 | done | session |
 | INF-09 | Hosted multi-researcher service on Cloud Run | P2 | planned | — |
 
 ---
@@ -616,7 +617,7 @@ workflow run 41071880181 on 2026-10-30. Superseded in scope by INF-10. See
 
 ## INF-10 — Hosted in-browser playground
 
-- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Priority** P1 · **Status** done · **Owner** session · **Rev** r2
 - **Files** `web/playground/`, `src/orcid_biosketch/playground.py`, `src/orcid_biosketch/network.py`,
   `scripts/build_site.py`, `firebase.json`, `tests/test_playground.py`, `tests/test_site.py`
 
@@ -632,15 +633,15 @@ the OpenID Connect implicit flow and verifies the ID token in the browser.
 - [x] No server-side state; network data never leaves the browser; strict CSP without `unsafe-eval`.
 - [x] Loopback server behaviour unchanged (`tests/test_network_http.py`, `tests/test_group_http.py`).
 - [x] Audit fixes: live channel only from `main`; cross-tab Web Lock prevents workspace overwrites; links ask before importing; engine recovers from a failed start (headless Chrome: two tabs, blocked runtime).
-- [ ] ORCID public API client registered and `ORCID_CLIENT_ID` variable set; sign-in verified live.
+- [ ] ~~ORCID sign-in verified live~~ moved to INF-11; the sign-in code ships but stays hidden until a client is registered.
 - [x] Pyodide served from the site with pinned SHA-256 hashes; CSP has no third-party origin (`tests/test_site.py`, #14).
-- [ ] Promoted to the live channel after review.
+- [x] Promoted to the live channel after review. Live at https://orcid-playground-889.web.app (live deploy run 41182335060, 2026-10-31, from `main` at c1150e4 after #16, #17 and #18). Headless Chrome on the live site: Studio (stored sample A 94%, live record, checksum error), network (sample, Studio handoff, persistence, team pack ZIP), two tabs without overwrites, service worker installed with site and runtime caches.
 
 ---
 
 ## KF-13 — Shareable group links and collaboration graph
 
-- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Priority** P1 · **Status** done · **Owner** session · **Rev** r2
 - **Files** `src/orcid_biosketch/collaboration.py`, `web/playground/group.html`, `web/playground/group.js`,
   `web/playground/group-link.js`, `tests/test_collaboration.py`
 
@@ -653,12 +654,13 @@ both records assert the same DOI, with those DOIs listed on the link.
 - [x] The link discloses exactly what it contains; roles, contributions and requests are never included; sample people are excluded.
 - [x] Records are read only on request, per member, with retry; nothing is stored unless the visitor copies the group into their network (confirmed).
 - [x] Untrusted names render as text in the graph and lists (headless Chrome with an injection payload).
+- [x] Live at https://orcid-playground-889.web.app (live deploy run 41182335060, 2026-10-31, from `main` at c1150e4 after #16, #17 and #18). Verified on the live site: compose, preview, read two records, graph and shared outputs, copy into the network, and Share & visualise reproducing the same link (#15 closed).
 
 ---
 
 ## KF-14 — Group record health and team biosketch
 
-- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Priority** P1 · **Status** done · **Owner** session · **Rev** r2
 - **Files** `src/orcid_biosketch/team.py`, `web/playground/group.js`, `tests/test_team.py`
 
 Phase 2 of issue #15, in the group view. Record health re-expresses each member's
@@ -672,12 +674,13 @@ in several members' records.
 - [x] Every record check has a plain-language label (`test_every_record_check_has_a_plain_language_label`).
 - [x] Team biosketch keeps each member's provenance line, lists only DOI-backed joint outputs and states that membership is unconfirmed.
 - [x] Both render and download in headless Chrome against live records.
+- [x] Live at https://orcid-playground-889.web.app (live deploy run 41182335060, 2026-10-31, from `main` at c1150e4 after #16, #17 and #18). Verified on the live site: record health B 84% with 9 issues for the two test records, team biosketch in ERC and NIH, downloads.
 
 ---
 
 ## KF-15 — Group Wrapped, card deck, embeddable widget, offline app, digest
 
-- **Priority** P2 · **Status** in-review · **Owner** session · **Rev** r1
+- **Priority** P2 · **Status** done · **Owner** session · **Rev** r2
 - **Files** `src/orcid_biosketch/team.py`, `web/orcid-group.js`, `web/playground/sw.js`, `web/playground/digest.js`,
   `web/playground/manifest.webmanifest`, `web/playground/group.js`, `web/playground/network-bridge.js`
 
@@ -689,6 +692,22 @@ Phase 3 of issue #15.
 - [x] `<orcid-group>` renders a static `orcid-group-snapshot/1` file as text only, with http(s) links only (`web/orcid-group.test.mjs`); verified embedded from another origin.
 - [x] Installable and offline after one visit: Studio and network run with the server stopped (headless Chrome); the ORCID API is never cached.
 - [x] Explicit "Refresh followed records" and a "what's new since your last visit" Markdown digest (`web/playground/digest.test.mjs`).
+- [x] Live at https://orcid-playground-889.web.app (live deploy run 41182335060, 2026-10-31, from `main` at c1150e4 after #16, #17 and #18). Verified on the live site: Wrapped, card deck (2 cards and ZIP), embed preview, `<orcid-group>` loaded from another origin (40 works, 2 members, search), refresh followed and digest, service worker caches. Offline use was proven against a local build with the server stopped; it was not repeated on the live domain.
+
+---
+
+## INF-11 — ORCID sign-in verified live
+
+- **Priority** P2 · **Status** planned · **Owner** — · **Rev** r1
+- **Files** `web/playground/auth.js`, `docs/gcp-hosting.md`
+
+Split from INF-10. The OpenID Connect sign-in code is live but hidden because
+`config.json` carries no client id (issue #14).
+
+**Acceptance criteria**
+- [ ] ORCID Public API client registered with redirect URI `https://orcid-playground-889.web.app/`.
+- [ ] `ORCID_CLIENT_ID` repository variable set and the site redeployed to live.
+- [ ] Sign-in, ID-token verification and sign-out tested on the live site.
 
 ---
 
@@ -806,3 +825,6 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-30 | KF-13 | Shareable group links, collaboration graph, group heatmap and bibliography (#15 phase 1) | — → in-review |
 | 2026-10-30 | KF-14 | Group record health and team biosketch in the group view (#15 phase 2) | — → in-review |
 | 2026-10-30 | KF-15 | Group Wrapped, card deck, embeddable widget, offline app and digest (#15 phase 3) | — → in-review |
+| 2026-10-31 | INF-10 | Live at orcid-playground-889.web.app (run 41182335060); verified in headless Chrome on the live site; sign-in split to INF-11 | in-review → done |
+| 2026-10-31 | KF-13, KF-14, KF-15 | Merged (#16, #17, #18), deployed live and verified on the live site; #15 closed | in-review → done |
+| 2026-10-31 | INF-11 | ORCID sign-in verification split from INF-10; awaits a registered client (#14) | — → planned |
