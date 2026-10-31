@@ -122,6 +122,11 @@ h2{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:clamp(1
 }
 @media (max-width:760px){.graph-wrap{grid-template-columns:1fr}}
 
+.row-actions{display:inline-flex;gap:6px;margin-left:8px;flex-wrap:wrap;vertical-align:middle}
+.invite{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.disclosure ul{margin:6px 0 10px;padding-left:20px}
+.disclosure label{display:flex;gap:8px;align-items:center;font-weight:600}
+
 .site-footer{max-width:1120px;margin:0 auto;padding:24px 16px 48px;font-size:.85rem;color:var(--muted);border-top:1px solid var(--line)}
 
 @media (max-width:760px){

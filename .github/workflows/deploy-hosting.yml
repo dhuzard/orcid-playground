@@ -48,6 +48,9 @@ jobs:
       - run: python scripts/build_site.py site
         env:
           ORCID_CLIENT_ID: ${{ vars.ORCID_CLIENT_ID }}
+          FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}
+          FIREBASE_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+          ORCID_EXCHANGE_URL: ${{ vars.ORCID_EXCHANGE_URL }}
       - name: Authenticate to Google Cloud (Workload Identity Federation, no stored keys)
         uses: google-github-actions/auth@v2
         with:

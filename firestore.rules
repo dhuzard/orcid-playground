@@ -69,8 +69,11 @@ service cloud.firestore {
 
         // Leave or decline (self), or remove (coordinator). Coordinators must be demoted first,
         // so a team can never be left without one.
-        allow delete: if signedIn() && !(orcid in get(teamPath(teamId)).data.coordinators)
-          && (orcid == me() || isCoordinator(teamId));
+        allow delete: if signedIn() && (
+          (exists(teamPath(teamId)) && !(orcid in get(teamPath(teamId)).data.coordinators)
+            && (orcid == me() || isCoordinator(teamId)))
+          // After a team is deleted, its former members clear their own leftover membership.
+          || (orcid == me() && !exists(teamPath(teamId))));
       }
 
       match /entries/{entryId} {
@@ -87,6 +90,15 @@ service cloud.firestore {
         allow delete: if isActive(teamId)
           && (resource.data.author == me() || resource.data.subject == me() || isCoordinator(teamId));
       }
+    }
+
+    // A personal workspace synced across devices: readable and writable only by its owner.
+    // Stored as compressed chunks (each under Firestore's 1 MiB document limit) plus a manifest.
+    match /users/{orcid}/workspace/{part} {
+      allow read, delete: if signedIn() && me() == orcid;
+      allow write: if signedIn() && me() == orcid
+        && request.resource.data.keys().hasOnly(['data', 'index', 'count', 'sha256', 'updatedAt', 'device'])
+        && (!('data' in request.resource.data) || (request.resource.data.data is string && request.resource.data.data.size() <= 900000));
     }
 
     // Invitees find their invitations with a collection-group query on "members" filtered by

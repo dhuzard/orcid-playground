@@ -20,7 +20,7 @@ from typing import Callable
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_SUFFIXES = {".json", ".jsonld", ".md", ".svg", ".txt"}
 PLAYGROUND = ("index.html", "playground.css", "studio.js", "auth.js", "engine.js", "engine-client.js", "network-bridge.js",
-              "group.js", "group-link.js", "digest.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png")
+              "group.js", "group-link.js", "cloud.js", "team.js", "digest.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png")
 # Fixed timestamp so the same source always produces the same archive.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 
@@ -102,7 +102,7 @@ def network_page(root: Path = ROOT) -> str:
 def build(out: Path, root: Path = ROOT, *, client_id: str | None = None) -> list[str]:
     if out.exists():
         shutil.rmtree(out)
-    for folder in ("generated", "network", "py", "group"):
+    for folder in ("generated", "network", "py", "group", "team"):
         (out / folder).mkdir(parents=True)
     copied = []
     for source in sorted((root / "generated").iterdir()):
@@ -117,6 +117,7 @@ def build(out: Path, root: Path = ROOT, *, client_id: str | None = None) -> list
         shutil.copy2(root / "web" / "network" / name, out / "network" / name)
     (out / "network" / "index.html").write_text(network_page(root), encoding="utf-8")
     shutil.copy2(root / "web" / "playground" / "group.html", out / "group" / "index.html")
+    shutil.copy2(root / "web" / "playground" / "team.html", out / "team" / "index.html")
     package_archive(out / "py" / "orcid_biosketch.zip", root)
     # The service worker carries a digest of everything else, so any change to the site
     # installs a fresh cache on the next visit.
@@ -127,9 +128,16 @@ def build(out: Path, root: Path = ROOT, *, client_id: str | None = None) -> list
     (out / "sw.js").write_text(worker.replace("__BUILD__", digest.hexdigest()[:16]), encoding="utf-8")
     # The ORCID client id of a public OAuth client is not a secret; empty hides sign-in.
     client_id = os.environ.get("ORCID_CLIENT_ID", "") if client_id is None else client_id
-    (out / "config.json").write_text(json.dumps({"orcid_client_id": client_id.strip()}) + "\n", encoding="utf-8")
+    settings = {"orcid_client_id": client_id.strip()}
+    # Team workspaces (docs/team-workspaces.md): public identifiers only; omitted unless all are set.
+    cloud = {"apiKey": os.environ.get("FIREBASE_WEB_API_KEY", "").strip(),
+             "projectId": os.environ.get("FIREBASE_PROJECT_ID", "").strip(),
+             "exchangeUrl": os.environ.get("ORCID_EXCHANGE_URL", "").strip()}
+    if all(cloud.values()):
+        settings["cloud"] = cloud
+    (out / "config.json").write_text(json.dumps(settings) + "\n", encoding="utf-8")
     return copied + [*PLAYGROUND, "orcid-biosketch.js", "orcid-group.js", "network/app.js", "network/style.css",
-                     "network/index.html", "group/index.html", "py/orcid_biosketch.zip", "sw.js", "config.json"]
+                     "network/index.html", "group/index.html", "team/index.html", "py/orcid_biosketch.zip", "sw.js", "config.json"]
 
 
 if __name__ == "__main__":

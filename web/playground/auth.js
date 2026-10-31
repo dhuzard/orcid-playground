@@ -29,8 +29,9 @@ export async function config() {
   } catch { return {}; }
 }
 
-export function signIn(clientId) {
-  const pending = { state: random(), nonce: random() };
+// returnTo: a same-site path to open after ORCID sends the visitor back to "/".
+export function signIn(clientId, returnTo = null) {
+  const pending = { state: random(), nonce: random(), returnTo: typeof returnTo === 'string' && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null };
   store(`${KEY}-pending`, pending);
   const params = new URLSearchParams({ client_id: clientId, response_type: 'id_token token', scope: 'openid', redirect_uri: redirectUri(), state: pending.state, nonce: pending.nonce });
   location.assign(`${ISSUER}/oauth/authorize?${params}`);
@@ -89,5 +90,25 @@ export async function completeSignIn(clientId) {
   const claims = await verify(fragment.get('id_token'), clientId, pending.nonce);
   const session = { orcid: claims.sub, name: [claims.given_name, claims.family_name].filter(Boolean).join(' ') || null };
   store(KEY, session);
+  // Kept in memory only, for one exchange with the team-workspace backend (cloud.js).
+  verifiedToken = fragment.get('id_token');
+  returnPath = pending.returnTo || null;
   return session;
+}
+
+let verifiedToken = null;
+let returnPath = null;
+
+// The ORCID ID token verified by the last completeSignIn, handed out once.
+export function takeVerifiedToken() {
+  const token = verifiedToken;
+  verifiedToken = null;
+  return token;
+}
+
+// Where the visitor was when they chose to sign in, handed out once.
+export function takeReturnPath() {
+  const path = returnPath;
+  returnPath = null;
+  return path;
 }

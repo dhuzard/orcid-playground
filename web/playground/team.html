@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#143d37">
+  <meta name="description" content="Private team workspaces: only signed-in, invited members can open a team.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>Teams · ORCID Playground</title>
+  <link rel="stylesheet" href="/playground.css">
+  <script type="module" src="/team.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-header">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">o.</span> ORCID Playground</a>
+    <nav aria-label="Main">
+      <a href="/">Studio</a>
+      <a href="/network/">Research network</a>
+      <a href="/group/">Group view</a>
+      <a href="/team/" aria-current="page">Teams</a>
+    </nav>
+    <div class="account" id="account"></div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero">
+      <div class="eyebrow">PRIVATE · MEMBERS ONLY</div>
+      <h1 id="title">Team workspaces</h1>
+      <p class="lede" id="lede">A private page for each team. Only people you invite, who sign in with their own ORCID iD and accept, can open it.</p>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+    <section id="view"></section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Team data (roles, contributions, notes, requests, selected outputs) is stored in Google Cloud Firestore in the EU and is readable only by the team's active members. Public ORCID records are read live and are not copied. Leaving a team removes your access; you can delete anything recorded about you.</p>
+  </footer>
+</body>
+</html>
