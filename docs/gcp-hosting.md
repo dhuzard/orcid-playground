@@ -23,11 +23,61 @@ The CSP allows only `self`, `pub.orcid.org` and ORCID's JWKS, plus `wasm-unsafe-
 
 ## Sign in with ORCID (optional)
 
-Sign-in is optional; typing an iD works without it. It uses the OpenID Connect implicit flow (`response_type=id_token`, `scope=openid`). The browser verifies the ID token's RS256 signature against `https://orcid.org/oauth/jwks` and checks the issuer, audience, nonce and expiry. Only the iD and name are kept, in `sessionStorage`; no access token is requested.
+Sign-in is optional; typing an iD works without it. The button stays hidden until a client id is configured (BACKLOG INF-11).
 
-1. On <https://orcid.org/developer-tools>, register a **Public API** client while signed in with the ORCID account that should own it.
-2. Add these redirect URIs: `https://orcid-playground-889.web.app/` and the preview channel URL printed by the deploy run, with its trailing `/`.
-3. Set the GitHub repository variable `ORCID_CLIENT_ID` to the client ID (`APP-…`). It is public, not a secret. The build writes it into `config.json`; when it is empty, the sign-in button is hidden.
+### How it works
+
+- OpenID Connect **implicit flow** against `https://orcid.org/oauth/authorize` with `response_type=id_token token`, `scope=openid`, a random `state` and `nonce` (kept in `sessionStorage` for the tab) and `redirect_uri` = the site origin plus `/`.
+- ORCID documents the implicit flow only for the `token` and `id_token token` response types with the `openid` scope, accepts `nonce`, and returns the values in the URL fragment ([ORCID OpenID Connect technical documentation](https://github.com/ORCID/ORCID-Source/blob/main/orcid-web/ORCID_AUTH_WITH_OPENID_CONNECT.md), linked from the [ORCID OpenID FAQ](https://info.orcid.org/faq/what-is-openid)). Bare `id_token` is listed in the [discovery document](https://orcid.org/.well-known/openid-configuration) but not in that documentation, so it is not used.
+- The browser verifies the ID token's RS256 signature against `https://orcid.org/oauth/jwks` (key chosen by the token's `kid`) and checks `iss` = `https://orcid.org`, `aud` = the client id, `nonce`, and `exp` (5 minutes of clock skew allowed; ORCID tokens live 10 minutes). It keeps only `sub` (the ORCID iD) and `given_name` + `family_name`, in `sessionStorage`.
+- The short-lived access token that comes with `id_token token` is never read, stored or used; the whole fragment is removed from the address bar at once.
+- An `error` in the fragment (with the tab's `state`) or in the query string (while a sign-in is pending) is shown as "cancelled or refused".
+- `web/playground/auth.test.mjs` covers this offline with locally generated keys and signed tokens.
+
+A signed-in iD proves only that the visitor controls that ORCID account at that moment. It does not verify anything the record asserts.
+
+### Register the ORCID Public API client (free, once)
+
+The client belongs to the ORCID record of whoever registers it and cannot be transferred. The Public API is free for non-commercial use only ([Registering a Public API client](https://info.orcid.org/documentation/integration-guide/registering-a-public-api-client/)).
+
+1. Sign in at <https://orcid.org/signin> with the ORCID account that should own the client.
+2. Make sure the account has a **verified email address**. Developer Tools stays locked until it does; ORCID offers to resend the verification email.
+3. Open the menu under your name (top right) and choose **Developer tools** (<https://orcid.org/developer-tools>).
+4. Read and accept the ORCID Public API Terms of Service, then click **Register for ORCID Public API Credentials** (the label may differ slightly).
+5. Fill in the form:
+   - **Name**: `ORCID Playground` (shown to people on the ORCID consent screen).
+   - **Application URL** (website): `https://orcid-playground-889.web.app/`
+   - **Description**: for example `Optional sign-in for an in-browser playground that renders a researcher's public ORCID record into biosketches. Only the ORCID iD and name from the signed ID token are used, in the visitor's browser tab; nothing is stored on a server.`
+   - **Redirect URIs**: exactly `https://orcid-playground-889.web.app/` (HTTPS, with the trailing `/`).
+6. Click **Save my application and generate my client ID and secret** and copy the **Client ID** (`APP-` followed by 16 characters).
+
+Redirect URI rules ([API tutorial: get an authenticated ORCID iD](https://info.orcid.org/documentation/api-tutorials/api-tutorial-get-and-authenticated-orcid-id/)): only HTTPS is accepted in production; the domain must match exactly, including subdomains, and each subdomain must be registered separately; a host-only registration allows any path on that host, but registering the full URI is recommended. The site always sends `${location.origin}/`, so for the live site that is exactly `https://orcid-playground-889.web.app/`.
+
+Preview channels are served from other hostnames (`orcid-playground-889--<channel>-<hash>.web.app`), and a channel's hostname changes when it expires and is recreated. Add a preview URL (with its trailing `/`) only when you want to test sign-in there, and remove it afterwards. The alternative domain `orcid-playground-889.firebaseapp.com` would also need its own entry; it is not used.
+
+What is public and what is not:
+
+- The **client id** is public. It ends up in `config.json` and in every authorize URL.
+- The **client secret** is not needed by the implicit flow. Never put it in the repository, a repository variable, a secret used by this site, `config.json` or an issue. If it is ever exposed, reset it in Developer Tools.
+
+### Turn it on
+
+```bash
+gh variable set ORCID_CLIENT_ID --repo dhuzard/orcid-playground --body APP-XXXXXXXXXXXXXXXX
+gh workflow run deploy-hosting.yml --repo dhuzard/orcid-playground --ref main -f channel=live
+```
+
+Pushes to `main` deploy only the preview channel, so the live site needs the manual `channel=live` run. The build writes the id into `config.json`; an empty value hides the button again. Check it with `curl -s https://orcid-playground-889.web.app/config.json`.
+
+### Manual test on the live site
+
+1. Open <https://orcid-playground-889.web.app/> in a private window. **Sign in with ORCID** appears top right. If not, check `config.json` and that the live deploy ran.
+2. Click it. ORCID's sign-in page opens and the address bar shows `response_type=id_token+token`, `scope=openid` and `redirect_uri=https%3A%2F%2Forcid-playground-889.web.app%2F`. A redirect URI error here means the registered URI does not match exactly.
+3. Sign in and authorize. You return to the Studio with your name (or iD) top right, the **My record** chip, and your public record loading. The address bar has no `#` fragment left.
+4. In DevTools, the Network tab shows one request to `https://orcid.org/oauth/jwks` and no CSP errors in the Console; Application > Session Storage holds `orcid-playground-signin` with only `orcid` and `name`.
+5. Click **Sign out**: the button returns. Sign in again and click **Deny** on ORCID's consent screen: you should return with "ORCID sign-in was cancelled or refused." and not be signed in. ORCID does not document where a denial is reported, so if you land elsewhere, note the URL (without any token) in issue #14.
+
+Then tick the INF-11 criteria in `BACKLOG.md` with the date and deploy run.
 
 ## Recommended: static site on Cloud Storage behind Cloud CDN
 
