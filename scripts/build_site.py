@@ -20,7 +20,7 @@ from typing import Callable
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_SUFFIXES = {".json", ".jsonld", ".md", ".svg", ".txt"}
 PLAYGROUND = ("index.html", "playground.css", "studio.js", "auth.js", "engine.js", "engine-client.js", "network-bridge.js",
-              "group.js", "group-link.js", "digest.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png")
+              "group.js", "group-link.js", "digest.js", "teampack.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png")
 # Fixed timestamp so the same source always produces the same archive.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 
@@ -74,7 +74,11 @@ NETWORK_PAGE = [
      'Stored only in this browser.<br>No accounts or public profiles.<br>'
      '<button id="refresh-followed" class="button quiet small" type="button">Refresh followed records</button><br>'
      '<button id="digest" class="button quiet small" type="button">What’s new since your last visit</button><br>'
+     '<button id="export-workspace" class="button quiet small" type="button">Download my workspace</button><br>'
+     '<button id="import-workspace" class="button quiet small" type="button">Restore from file</button>'
+     '<input id="import-workspace-file" type="file" accept=".json,application/json" hidden><br>'
      '<button id="reset-workspace" class="button quiet small" type="button">Clear this workspace</button>'
+     '<br><a href="/group/?packages=1">Encrypted team packages →</a>'
      '<br><a href="/">← Back to the Studio</a>'),
     ("01 / LOCAL", "01 / BROWSER"),
 ]

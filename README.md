@@ -46,6 +46,16 @@ ORCID sync deploy it automatically; branches can be previewed on demand (see
   has published together, linking members only through DOIs both records assert,
   with record health, a funder team biosketch, Group Wrapped and a printable card deck.
 
+Saving needs no server either. The network sidebar's **Download my workspace**
+saves the whole browser workspace as a versioned JSON file, and **Restore from
+file** validates such a file before replacing the workspace. Signed-in visitors
+get a **Me** panel in the Studio with their record check, a "Follow me" button and
+the groups that list them. A coordinator can hand a group, with its local roles,
+contributions and requests, to a teammate as an **encrypted team package**
+(`/group/?packages=1`), protected by a password and encrypted in the browser
+(PBKDF2-SHA256, AES-GCM-256). Anyone with the file and the password can read it,
+and membership is never confirmed by the people listed.
+
 The site installs as an app and works offline after one visit. To show a group on
 a lab website, download its snapshot from the group view's Embed tab and add:
 

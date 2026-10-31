@@ -75,13 +75,59 @@ if (digestButton) {
   digest().then(({ count }) => { digestButton.textContent = `What’s new since your last visit (${count})`; }).catch(() => {});
   digestButton.addEventListener('click', async () => {
     const { markdown } = await digest();
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown' }));
-    link.download = 'whats-new.md';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    saveFile(markdown, 'whats-new.md', 'text/markdown');
   });
 }
+
+function saveFile(text, filename, type) {
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([text], { type }));
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+// ---- Backup and restore: a file the visitor keeps; nothing is uploaded ----
+
+const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
+
+document.querySelector('#export-workspace')?.addEventListener('click', async event => {
+  const button = event.currentTarget;
+  if (!confirm('Download a copy of the research network stored in this browser?\n\n'
+    + 'The file contains every imported public ORCID record, who you follow, your saved outputs, and your groups with their local roles, expertise, contributions, project selections and requests.\n\n'
+    + 'It is not encrypted: anyone who gets the file can read all of it. Group membership and roles in it are your own notes; the people listed have not confirmed them.')) return;
+  button.disabled = true;
+  try {
+    const text = await call('exportWorkspace');
+    saveFile(text, `orcid-playground-workspace-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
+  } catch (error) {
+    alert(`Could not export the workspace: ${error.message}`);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+const restoreInput = document.querySelector('#import-workspace-file');
+document.querySelector('#import-workspace')?.addEventListener('click', () => restoreInput?.click());
+restoreInput?.addEventListener('change', async () => {
+  const [file] = restoreInput.files;
+  restoreInput.value = '';
+  if (!file) return;
+  if (file.size > MAX_BACKUP_BYTES) return alert('This file is too large to be a workspace backup.');
+  try {
+    const text = await file.text();
+    const summary = JSON.parse(await call('checkWorkspace', { text }));
+    const made = Number.isNaN(Date.parse(summary.exported_at)) ? 'an unknown date' : new Date(summary.exported_at).toLocaleString();
+    const groups = summary.group_names.length ? `: ${summary.group_names.slice(0, 5).join(', ')}${summary.group_names.length > 5 ? '…' : ''}` : '';
+    if (!confirm(`Replace this browser’s research network with this backup (made ${made})?\n\n`
+      + `The backup holds ${summary.people} researcher(s), ${summary.sample_people} sample people, ${summary.saved} saved output(s) and ${summary.groups} group(s)${groups}.\n\n`
+      + 'Everything currently stored in this browser’s network (people, follows, saved outputs, groups, roles, contributions and requests) will be replaced. Download your current workspace first if you may need it.')) return;
+    await call('importWorkspace', { text });
+    location.reload();
+  } catch (error) {
+    alert(`Could not restore this file: ${error.message}\n\nNothing was changed.`);
+  }
+});
 
 // Re-reading followed records is an explicit, one-off action; nothing polls ORCID.
 document.querySelector('#refresh-followed')?.addEventListener('click', async event => {

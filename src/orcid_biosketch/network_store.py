@@ -87,6 +87,43 @@ def _publication_interval(value: str) -> tuple[date, date] | None:
     return None
 
 
+WORKSPACE_FORMAT = "orcid-playground-workspace"
+GROUP_PACKAGE_FORMAT = "orcid-playground-team-group"
+_GROUP_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+_DEMO_ID = re.compile(r"demo-[a-z0-9-]{1,60}")
+
+
+def _fields(value: Any, field: str, required: tuple = (), optional: tuple = ()) -> dict:
+    """An object with exactly the expected keys: files are untrusted input."""
+    if not isinstance(value, dict):
+        raise ValueError(f"{field} must be an object")
+    missing = [key for key in required if key not in value]
+    if missing:
+        raise ValueError(f"{field} is missing {', '.join(missing)}")
+    unknown = sorted(str(key) for key in set(value) - set(required) - set(optional))
+    if unknown:
+        raise ValueError(f"{field} has unexpected fields: {', '.join(unknown[:5])}")
+    return value
+
+
+def _strings(value: Any, field: str) -> list:
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError(f"{field} must be a list of strings")
+    return list(dict.fromkeys(value))
+
+
+def _optional_text(value: Any, field: str) -> str | None:
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"{field} must be text")
+    return value
+
+
+def _version_one(document: dict, field: str) -> None:
+    version = document.get("version")
+    if type(version) is not int or version != 1:
+        raise ValueError(f"Unsupported {field} version {version!r}; this site reads version 1")
+
+
 class NetworkStore:
     """One SQLite file; each mutation is a durable all-or-nothing transaction.
 
@@ -179,36 +216,40 @@ class NetworkStore:
 
     def state(self) -> dict:
         with self._transaction() as data:
-            works = self._works(data)
-            people = []
-            for person_id, profile in data["profiles"].items():
-                bio = profile["bio"]
-                person = bio["person"]
-                employment = next((e for e in bio["employment"] if not e.get("end_date")),
-                                  next(iter(bio["employment"]), {}))
-                people.append({"id": person_id, "name": person["name"] or person_id,
-                               "orcid": None if profile["demo"] else person_id,
-                               "headline": _text(employment.get("role")),
-                               "affiliation": _text(employment.get("organization")),
-                               "keywords": person["keywords"], "demo": profile["demo"],
-                               "following": profile["following"], "last_checked": profile["last_checked"],
-                               "work_count": sum(person_id in w["people_ids"] for w in works.values())})
-            events = []
-            for key, event in data["events"].items():
-                if key not in works:
-                    continue
-                # Early pilot files without observation provenance fail closed:
-                # do not assign an old observation to every current researcher.
-                observed_people = [person_id for person_id in event.get("people_ids", [])
-                                   if person_id in works[key]["people_ids"]]
-                if observed_people:
-                    events.append({"id": "event:" + key, "work_id": key, "kind": "work-added",
-                                   "observed_at": event["observed_at"], "people_ids": observed_people,
-                                   "demo": works[key]["demo"]})
-            public_works = [{k: v for k, v in work.items() if k != "_source"} for work in works.values()]
-            return {"people": people, "works": sorted(public_works, key=lambda w: w["date"], reverse=True),
-                    "events": sorted(events, key=lambda e: e["observed_at"], reverse=True),
-                    "groups": list(data["groups"].values())}
+            return self._state(data)
+
+    @classmethod
+    def _state(cls, data: dict) -> dict:
+        works = cls._works(data)
+        people = []
+        for person_id, profile in data["profiles"].items():
+            bio = profile["bio"]
+            person = bio["person"]
+            employment = next((e for e in bio["employment"] if not e.get("end_date")),
+                              next(iter(bio["employment"]), {}))
+            people.append({"id": person_id, "name": person["name"] or person_id,
+                           "orcid": None if profile["demo"] else person_id,
+                           "headline": _text(employment.get("role")),
+                           "affiliation": _text(employment.get("organization")),
+                           "keywords": person["keywords"], "demo": profile["demo"],
+                           "following": profile["following"], "last_checked": profile["last_checked"],
+                           "work_count": sum(person_id in w["people_ids"] for w in works.values())})
+        events = []
+        for key, event in data["events"].items():
+            if key not in works:
+                continue
+            # Early pilot files without observation provenance fail closed:
+            # do not assign an old observation to every current researcher.
+            observed_people = [person_id for person_id in event.get("people_ids", [])
+                               if person_id in works[key]["people_ids"]]
+            if observed_people:
+                events.append({"id": "event:" + key, "work_id": key, "kind": "work-added",
+                               "observed_at": event["observed_at"], "people_ids": observed_people,
+                               "demo": works[key]["demo"]})
+        public_works = [{k: v for k, v in work.items() if k != "_source"} for work in works.values()]
+        return {"people": people, "works": sorted(public_works, key=lambda w: w["date"], reverse=True),
+                "events": sorted(events, key=lambda e: e["observed_at"], reverse=True),
+                "groups": list(data["groups"].values())}
 
     @staticmethod
     def _validate_bio(bio: Any) -> tuple[str, dict]:
@@ -491,3 +532,225 @@ class NetworkStore:
             data["groups"].setdefault("demo-open-science", {
                 "id": "demo-open-science", "name": "Open Science Circle · Demo", "description": "A fictional working group for trying the pilot.",
                 "member_ids": [row[0] for row in examples], "created_at": now})
+
+    # ---- Backup, restore and team packages -------------------------------
+    # Files come back from outside this workspace, so they are validated as
+    # untrusted input and rebuilt from known fields before a single write.
+
+    @staticmethod
+    def _validate_demo_bio(person_id: Any, bio: Any) -> dict:
+        if not isinstance(person_id, str) or not _DEMO_ID.fullmatch(person_id):
+            raise ValueError("Sample profiles must have a demo- id")
+        if not isinstance(bio, dict) or bio.get("demo") is not True or not isinstance(bio.get("person"), dict):
+            raise ValueError("Sample profiles must be marked as fictional demo data")
+        try:
+            result = json.loads(json.dumps(bio, allow_nan=False))
+        except (TypeError, ValueError) as error:
+            raise ValueError("A sample profile could not be read") from error
+        person = result["person"]
+        if not isinstance(person.get("name"), str):
+            raise ValueError("Sample profiles need a name")
+        person["keywords"] = _strings(person.get("keywords", []), "Keywords")
+        for section in ("works", "employment"):
+            if not isinstance(result.get(section, []), list) or any(not isinstance(x, dict) for x in result.get(section, [])):
+                raise ValueError(f"Biosketch {section} must be a list of objects")
+            result.setdefault(section, [])
+        for affiliation in result["employment"]:
+            for field in ("role", "organization", "start_date", "end_date"):
+                affiliation[field] = _text(affiliation.get(field))
+        for work in result["works"]:
+            if not isinstance(work.get("identifiers", {}), dict) or work.get("orcid_put_code") is None:
+                raise ValueError("Sample works need identifiers and a put code")
+            work.setdefault("identifiers", {})
+            for field in ("title", "type", "publication_date", "url"):
+                work[field] = _text(work.get(field))
+        if not isinstance(result.get("provenance", {}), dict):
+            raise ValueError("Biosketch provenance must be an object")
+        result.setdefault("provenance", {})
+        return result
+
+    @classmethod
+    def _validate_profile(cls, person_id: Any, profile: Any, field: str) -> dict:
+        _fields(profile, field, ("bio", "following", "demo"), ("last_checked",))
+        if type(profile["following"]) is not bool or type(profile["demo"]) is not bool:
+            raise ValueError(f"{field} following and demo must be true or false")
+        if profile["demo"]:
+            bio = cls._validate_demo_bio(person_id, profile["bio"])
+        else:
+            bio_id, bio = cls._validate_bio(profile["bio"])
+            if bio_id != person_id:
+                raise ValueError(f"{field} does not match its ORCID iD")
+        return {"bio": bio, "following": profile["following"],
+                "last_checked": _optional_text(profile.get("last_checked"), f"{field} last_checked"),
+                "demo": profile["demo"]}
+
+    @classmethod
+    def _validate_group_record(cls, group: Any, field: str, profiles: dict) -> dict:
+        _fields(group, field, ("name", "description", "member_ids"),
+                ("id", "created_at", "member_details", "selected_work_ids", "requests"))
+        values = cls._group_values({"profiles": profiles}, group["name"], group["description"], group["member_ids"])
+        members = set(values["member_ids"])
+        created_at = group.get("created_at", _now())
+        if not isinstance(created_at, str):
+            raise ValueError(f"{field} created_at must be text")
+        details = group.get("member_details", {})
+        if not isinstance(details, dict):
+            raise ValueError(f"{field} member details must be an object")
+        member_details = {}
+        for person_id, entry in details.items():
+            if person_id not in members:
+                raise ValueError(f"{field} has member details for someone who is not a member")
+            _fields(entry, f"{field} member details", (), ("role", "expertise", "contribution"))
+            member_details[person_id] = {
+                "role": _bounded_text(entry.get("role", ""), "Role", 120),
+                "expertise": _bounded_text(entry.get("expertise", ""), "Expertise", 500),
+                "contribution": _bounded_text(entry.get("contribution", ""), "Contribution", 1000)}
+        requests = group.get("requests", [])
+        if not isinstance(requests, list):
+            raise ValueError(f"{field} requests must be a list")
+        clean_requests = []
+        for request in requests:
+            _fields(request, f"{field} request", ("id", "title", "status"),
+                    ("description", "owner_id", "due_date", "created_at"))
+            if not isinstance(request["id"], str) or not _GROUP_ID.fullmatch(request["id"]):
+                raise ValueError(f"{field} request ids must be short identifiers")
+            owner = request.get("owner_id")
+            if owner is not None and owner not in members:
+                raise ValueError("Request owner must be a current group member")
+            if request["status"] not in ("open", "resolved"):
+                raise ValueError("Request status must be open or resolved")
+            due_date = request.get("due_date", "")
+            _date_bound(due_date, "Due date")
+            request_created = request.get("created_at", created_at)
+            if not isinstance(request_created, str):
+                raise ValueError(f"{field} request created_at must be text")
+            clean_requests.append({
+                "id": request["id"], "title": _bounded_text(request["title"], "Request title", 160, required=True),
+                "description": _bounded_text(request.get("description", ""), "Request description", 2000),
+                "owner_id": owner, "due_date": due_date, "status": request["status"], "created_at": request_created})
+        if len({request["id"] for request in clean_requests}) != len(clean_requests):
+            raise ValueError(f"{field} has repeated request ids")
+        return {**values, "created_at": created_at, "member_details": member_details,
+                "selected_work_ids": _strings(group.get("selected_work_ids", []), f"{field} selected outputs"),
+                "requests": clean_requests}
+
+    @classmethod
+    def _validate_workspace_data(cls, data: Any) -> dict:
+        _fields(data, "Workspace data", ("version", "profiles", "events", "saved", "groups"))
+        _version_one(data, "workspace data")
+        if not isinstance(data["profiles"], dict):
+            raise ValueError("Workspace profiles must be an object")
+        profiles = {person_id: cls._validate_profile(person_id, profile, "A profile")
+                    for person_id, profile in data["profiles"].items()}
+        if not isinstance(data["events"], dict):
+            raise ValueError("Workspace events must be an object")
+        events = {}
+        for key, event in data["events"].items():
+            _fields(event, "An event", ("observed_at",), ("people_ids",))
+            if not isinstance(event["observed_at"], str):
+                raise ValueError("Event observed_at must be text")
+            events[key] = {"observed_at": event["observed_at"],
+                           "people_ids": _strings(event.get("people_ids", []), "Event people")}
+        if not isinstance(data["groups"], dict):
+            raise ValueError("Workspace groups must be an object")
+        groups = {}
+        for group_id, group in data["groups"].items():
+            if not _GROUP_ID.fullmatch(group_id) or (isinstance(group, dict) and group.get("id", group_id) != group_id):
+                raise ValueError("Group ids must be short identifiers matching their key")
+            groups[group_id] = {"id": group_id, **cls._validate_group_record(group, "A group", profiles)}
+        result = {"version": 1, "profiles": profiles, "events": events,
+                  "saved": _strings(data["saved"], "Saved outputs"), "groups": groups}
+        cls._prune(result)
+        cls._state(result)  # The restored workspace must be readable.
+        return result
+
+    def export_data(self) -> dict:
+        """A versioned, self-contained copy of the whole workspace."""
+        with self._transaction() as data:
+            return {"format": WORKSPACE_FORMAT, "version": 1, "exported_at": _now(), "data": data}
+
+    @classmethod
+    def validate_export(cls, document: Any) -> tuple[dict, dict]:
+        """Validate a workspace file; return the clean data and a summary of it."""
+        if not isinstance(document, dict) or document.get("format") != WORKSPACE_FORMAT:
+            raise ValueError("This is not an ORCID Playground workspace file")
+        _version_one(document, "workspace file")
+        _fields(document, "Workspace file", ("format", "version", "exported_at", "data"))
+        if not isinstance(document["exported_at"], str):
+            raise ValueError("Workspace file exported_at must be text")
+        data = cls._validate_workspace_data(document["data"])
+        profiles = data["profiles"].values()
+        return data, {"exported_at": document["exported_at"],
+                      "people": sum(not p["demo"] for p in profiles), "sample_people": sum(p["demo"] for p in profiles),
+                      "groups": len(data["groups"]), "group_names": [g["name"] for g in data["groups"].values()],
+                      "saved": len(data["saved"])}
+
+    def import_data(self, document: Any) -> dict:
+        """Replace the whole workspace with a validated file, in one transaction."""
+        data, summary = self.validate_export(document)
+        with self._transaction(True) as current:
+            current.clear()
+            current.update(data)
+        return summary
+
+    def export_group_package(self, id: str) -> dict:
+        """One group with its local details and the members' records, for a teammate."""
+        with self._transaction() as data:
+            group = self._group(data, id)
+            fields = ("name", "description", "member_ids", "created_at", "member_details", "selected_work_ids", "requests")
+            return {"format": GROUP_PACKAGE_FORMAT, "version": 1, "exported_at": _now(),
+                    "group": {key: group[key] for key in fields if key in group},
+                    "profiles": {person_id: {"bio": data["profiles"][person_id]["bio"],
+                                             "demo": data["profiles"][person_id]["demo"],
+                                             "last_checked": data["profiles"][person_id]["last_checked"]}
+                                 for person_id in group["member_ids"]}}
+
+    @classmethod
+    def _validate_group_package(cls, document: Any) -> tuple[dict, dict, str]:
+        if not isinstance(document, dict) or document.get("format") != GROUP_PACKAGE_FORMAT:
+            raise ValueError("This file does not contain an ORCID Playground team package")
+        _version_one(document, "team package")
+        _fields(document, "Team package", ("format", "version", "exported_at", "group", "profiles"))
+        if not isinstance(document["exported_at"], str) or not isinstance(document["profiles"], dict):
+            raise ValueError("Team package exported_at must be text and profiles an object")
+        profiles = {}
+        for person_id, profile in document["profiles"].items():
+            _fields(profile, "A team package profile", ("bio", "demo"), ("last_checked",))
+            profiles[person_id] = cls._validate_profile(person_id, {**profile, "following": True}, "A team package profile")
+        group = cls._validate_group_record(document["group"], "Team package group", profiles)
+        if set(profiles) != set(group["member_ids"]):
+            raise ValueError("Team package profiles must match its members exactly")
+        return group, profiles, document["exported_at"]
+
+    def preview_group_package(self, document: Any) -> dict:
+        """Exactly what importing a team package would add, without writing anything."""
+        group, profiles, exported_at = self._validate_group_package(document)
+        with self._transaction() as data:
+            existing = set(data["profiles"])
+        works = self._works({"profiles": profiles, "saved": []})
+        names = {person_id: profile["bio"]["person"]["name"] or person_id for person_id, profile in profiles.items()}
+        empty = {"role": "", "expertise": "", "contribution": ""}
+        return {
+            "name": group["name"], "description": group["description"], "exported_at": exported_at,
+            "members": [{"id": person_id, "name": names[person_id],
+                         "orcid": None if profiles[person_id]["demo"] else person_id,
+                         "demo": profiles[person_id]["demo"], "in_network": person_id in existing,
+                         "last_checked": profiles[person_id]["last_checked"],
+                         **group["member_details"].get(person_id, empty)}
+                        for person_id in group["member_ids"]],
+            "selected_outputs": [works[key]["title"] or "Untitled" for key in group["selected_work_ids"] if key in works],
+            "requests": [{"title": request["title"], "status": request["status"], "due_date": request["due_date"],
+                          "owner": names.get(request["owner_id"]) if request["owner_id"] else None}
+                         for request in group["requests"]],
+        }
+
+    def import_group_package(self, document: Any) -> str:
+        """Add a team package's group as a new group; local copies of known people are kept."""
+        group, profiles, _ = self._validate_group_package(document)
+        with self._transaction(True) as data:
+            for person_id, profile in profiles.items():
+                data["profiles"].setdefault(person_id, profile)
+            group_id = str(uuid.uuid4())
+            data["groups"][group_id] = {"id": group_id, **group}
+            self._prune(data)
+            return group_id

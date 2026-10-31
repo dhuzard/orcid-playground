@@ -66,6 +66,30 @@
       </div>
       <p class="provenance" id="provenance"></p>
     </section>
+
+    <section id="packages" class="result packages">
+      <details id="packages-details">
+        <summary><span class="eyebrow">ENCRYPTED TEAM PACKAGE</span> <b>Hand a group from your research network to a teammate</b></summary>
+        <div class="disclosure">
+          <b>What a team package contains</b>
+          <p>One group from the research network stored in this browser: its name and description, each member’s public ORCID record as last read into your network, and your local roles, expertise, contributions, selected project outputs and requests. It is encrypted in this browser with a password you choose (PBKDF2-SHA256, AES-GCM-256); nothing is uploaded. Anyone who has both the file and the password can read all of it, so send the password by a different channel. The people listed have not confirmed their membership, roles or contributions.</p>
+        </div>
+        <form id="pack-export" class="stack">
+          <label>Group from your research network <select id="pack-group" required></select></label>
+          <label>Password, at least 12 characters <input id="pack-password" type="password" minlength="12" autocomplete="new-password" required></label>
+          <label>Repeat the password <input id="pack-password-again" type="password" autocomplete="new-password" required></label>
+          <button class="button accent" type="submit">Encrypt and download</button>
+        </form>
+        <h3>Open a team package</h3>
+        <form id="pack-import" class="stack">
+          <label>Team package file <input id="pack-file" type="file" accept=".json,application/json" required></label>
+          <label>Password <input id="pack-open-password" type="password" autocomplete="off" required></label>
+          <button class="button" type="submit">Decrypt and preview</button>
+        </form>
+        <p id="pack-status" class="status" role="status" aria-live="polite"></p>
+        <div id="pack-preview"></div>
+      </details>
+    </section>
   </main>
 
   <footer class="site-footer">

@@ -132,6 +132,18 @@ def _reject_constant(value):
     raise ValueError(f"Non-finite JSON value {value} is not supported.")
 
 
+def _document(text: str) -> Any:
+    try:
+        return json.loads(text, parse_constant=_reject_constant)
+    except (json.JSONDecodeError, TypeError) as error:
+        raise ValueError("The file is not valid JSON.") from error
+
+
+def check_workspace(text: str) -> str:
+    """Validate a workspace backup without touching any workspace; return its summary."""
+    return json.dumps(NetworkStore.validate_export(_document(text))[1], ensure_ascii=False)
+
+
 class Workspace:
     """The network pilot's API without an HTTP server; state stays in ``path``."""
 
@@ -153,3 +165,21 @@ class Workspace:
         else:
             reply["body"] = json.dumps(data, ensure_ascii=False)
         return json.dumps(reply)
+
+    # Backups and team packages stay in the visitor's browser: the page saves
+    # them as files on request; nothing here sends them anywhere.
+
+    def export_workspace(self) -> str:
+        return json.dumps(self.store.export_data(), ensure_ascii=False, indent=1)
+
+    def import_workspace(self, text: str) -> str:
+        return json.dumps(self.store.import_data(_document(text)), ensure_ascii=False)
+
+    def export_group_package(self, group_id: str) -> str:
+        return json.dumps(self.store.export_group_package(group_id), ensure_ascii=False)
+
+    def preview_group_package(self, text: str) -> str:
+        return json.dumps(self.store.preview_group_package(_document(text)), ensure_ascii=False)
+
+    def import_group_package(self, text: str) -> str:
+        return json.dumps({"group_id": self.store.import_group_package(_document(text))})
