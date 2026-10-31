@@ -65,6 +65,7 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | KF-13 | Shareable group links and evidence-backed collaboration graph (#15) | P1 | done | session |
 | KF-14 | Group record health and team biosketch for funders (#15 phase 2) | P1 | done | session |
 | KF-15 | Group Wrapped, card deck, <orcid-group> widget, offline app and digest (#15 phase 3) | P2 | done | session |
+| KF-17 | Contacts: context tags, private notes and follow-ups | P1 | in-review | session |
 | INF-09 | Hosted multi-researcher service on Cloud Run | P2 | planned | — |
 | KF-16 | Personal saving and encrypted team packages | P1 | in-review | session |
 
@@ -793,6 +794,31 @@ until they save a file; nothing is uploaded and no new origin is contacted.
 
 ---
 
+## KF-17 — Contacts: context tags, notes and follow-ups
+
+- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Files** `src/orcid_biosketch/network_store.py`, `src/orcid_biosketch/network.py`, `web/network/app.js`,
+  `tests/test_contacts.py`, `web/network/app.test.mjs`
+
+Groups suit a project team, not "the people I met at FENS". Contacts add a private, per-person
+layer on imported ORCID records: context tags, a date met, dated notes, and follow-ups with
+optional due dates. A tag is a lightweight grouping; one click turns it into a real group when a
+project starts. Everything is the researcher's own record; it asserts nothing about the person.
+
+**Acceptance criteria**
+- [x] "I just met people": paste ORCID iDs, name the context and date; records are imported
+      (existing imports reused) and tagged, with per-record results and cancellation.
+- [x] Per-person tags (case-insensitive, max 20 x 60 chars), notes (2000), follow-ups (open/done,
+      due date, overdue shown); filter by context; open follow-ups across a context.
+- [x] Tag to group conversion reuses the group API; no new membership claims.
+- [x] Contacts excluded from team packs and group packages; only the workspace backup carries
+      them and its disclosure says so (`tests/test_contacts.py`).
+- [x] Strict validation on restore; workspaces without contacts still load.
+- [ ] Contacts without an ORCID iD, reminders, search across notes.
+- [ ] Merged and verified on the live site.
+
+---
+
 ## Change log
 
 Append-only. Newest entries at the bottom. One line per status or scope change.
@@ -867,3 +893,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-31 | INF-11 | ORCID sign-in verification split from INF-10; awaits a registered client (#14) | — → planned |
 | 2026-10-31 | INF-10 | Deploy policy: main and weekly sync deploy live; previews on demand | policy |
 | 2026-10-31 | KF-16 | Workspace backup/restore, Studio "Me" panel and password-encrypted team packages, all in the browser | — → in-review |
+| 2026-10-31 | KF-17 | Contacts view: context tags, private notes and follow-ups; tag-to-group; excluded from team packs | — → in-review |

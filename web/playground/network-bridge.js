@@ -94,7 +94,7 @@ const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 document.querySelector('#export-workspace')?.addEventListener('click', async event => {
   const button = event.currentTarget;
   if (!confirm('Download a copy of the research network stored in this browser?\n\n'
-    + 'The file contains every imported public ORCID record, who you follow, your saved outputs, and your groups with their local roles, expertise, contributions, project selections and requests.\n\n'
+    + 'The file contains every imported public ORCID record, who you follow, your saved outputs, your contacts with their tags, private notes and follow-ups, and your groups with their local roles, expertise, contributions, project selections and requests.\n\n'
     + 'It is not encrypted: anyone who gets the file can read all of it. Group membership and roles in it are your own notes; the people listed have not confirmed them.')) return;
   button.disabled = true;
   try {

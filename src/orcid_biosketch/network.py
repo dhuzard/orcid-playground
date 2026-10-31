@@ -129,6 +129,20 @@ def dispatch(store, importer, method: str, target: str, payload: dict | None = N
                                            payload.get("owner_id"), payload.get("due_date", ""))
             else:
                 store.set_group_request_status(group_id, payload.get("request_id"), payload.get("status"))
+        elif path == "/api/contacts/tags":
+            store.tag_contacts(payload.get("person_ids"), payload.get("add"), payload.get("remove"),
+                               payload.get("met_on", ""))
+        elif path in ("/api/contacts/notes", "/api/contacts/actions", "/api/contacts/actions/update",
+                      "/api/contacts/delete"):
+            person_id = payload.get("person_id")
+            if path == "/api/contacts/notes":
+                store.add_contact_note(person_id, payload.get("text"))
+            elif path == "/api/contacts/actions":
+                store.add_contact_action(person_id, payload.get("title"), payload.get("due_date", ""))
+            elif path == "/api/contacts/actions/update":
+                store.set_contact_action_status(person_id, payload.get("action_id"), payload.get("status"))
+            else:
+                store.delete_contact_entry(person_id, payload.get("kind"), payload.get("entry_id"))
         else:
             return 404, {"error": "Not found."}, JSON_TYPE, None
         return 200, store.state(), JSON_TYPE, None
