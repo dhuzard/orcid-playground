@@ -131,3 +131,28 @@ describe('entries (roles, contributions, notes, requests, outputs)', () => {
     await assertFails(getDoc(doc(as(BEN), 'teams', TEAM)));
   });
 });
+
+describe('after a team is deleted', () => {
+  test('former members can clear their leftover membership, outsiders cannot', async () => {
+    await createTeam(); await invite(); await accept();
+    await env.withSecurityRulesDisabled(ctx => deleteDoc(doc(ctx.firestore(), 'teams', TEAM)));
+    await assertFails(deleteDoc(doc(as(EVE), 'teams', TEAM, 'members', BEN)));
+    await assertSucceeds(deleteDoc(doc(as(BEN), 'teams', TEAM, 'members', BEN)));
+    await assertSucceeds(deleteDoc(doc(as(ADA), 'teams', TEAM, 'members', ADA)));
+  });
+});
+
+describe('personal synced workspace', () => {
+  const part = (orcid, data = 'H4sI') => ({ data, index: 0, count: 1, sha256: 'x', updatedAt: serverTimestamp(), device: 'test' });
+  test('only the owner reads and writes their workspace', async () => {
+    await assertSucceeds(setDoc(doc(as(ADA), 'users', ADA, 'workspace', 'chunk-0'), part(ADA)));
+    await assertSucceeds(getDoc(doc(as(ADA), 'users', ADA, 'workspace', 'chunk-0')));
+    await assertFails(getDoc(doc(as(EVE), 'users', ADA, 'workspace', 'chunk-0')));
+    await assertFails(setDoc(doc(as(EVE), 'users', ADA, 'workspace', 'chunk-0'), part(ADA)));
+    await assertFails(getDoc(doc(as(null), 'users', ADA, 'workspace', 'chunk-0')));
+  });
+  test('workspace parts are bounded and typed', async () => {
+    await assertFails(setDoc(doc(as(ADA), 'users', ADA, 'workspace', 'chunk-0'), part(ADA, 'x'.repeat(900001))));
+    await assertFails(setDoc(doc(as(ADA), 'users', ADA, 'workspace', 'chunk-0'), { ...part(ADA), extra: 1 }));
+  });
+});

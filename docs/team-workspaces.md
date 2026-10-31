@@ -1,6 +1,6 @@
 # Private team workspaces (design)
 
-Status: **design + access-rule prototype** (issue #22, milestone Playground v2). Nothing here is deployed. Server-side storage requires the Firebase **Blaze** plan on `orcid-playground-889`, which is the owner's decision.
+Status: **built, partly deployed** (issue #22, milestone Playground v2). Firestore (`eur3`) is live with these rules, and the collection-group index exists. The exchange function waits for the **Blaze** plan; until it is deployed, the site hides team workspaces and sync.
 
 ## Goal
 
@@ -88,10 +88,15 @@ On Windows, the emulator's Java process may outlive the run. If the next run say
 
 ## Delivery steps (issue #22)
 
-1. ✅ This design and the access-rule prototype: `firestore.rules`, with 16 emulator tests in `tests/rules/`, run in CI.
-2. Owner decision: enable Blaze, with a budget alert.
-3. ORCID sign-in live (INF-11, #14). The exchange function depends on it.
-4. The exchange function plus its tests: forged, expired and wrong-audience tokens must be refused.
-5. The `/team/` pages over Firestore REST, and a CSP update for the three Google origins.
-6. A security review before any real team data is stored. Then a pilot with one team (#20).
-7. Member-confirmed membership (#23) builds on `status: "active"` plus the disclosure record.
+1. ✅ Design and access rules: `firestore.rules`, with 19 emulator tests in `tests/rules/`, run in CI.
+2. ✅ Firestore created in `eur3`, rules released (`scripts/deploy_rules.sh`), index on `members.orcid` (`firestore.indexes.json`), restricted browser API key.
+3. ✅ ORCID sign-in live (INF-11).
+4. ✅ Exchange function `functions/exchange` with 11 tests: forged, expired, other-audience, wrong-issuer and algorithm-confusion tokens, and foreign origins, are all refused.
+5. ✅ `/team/` pages (`team.js`) and the REST client (`cloud.js`), plus personal sync (`sync.js`) in the network sidebar. Verified end to end against the Auth and Firestore emulators with three users (create, invite, outsider refused, accept with disclosure, notes, leave with deletion, delete team, save/clear/load workspace).
+6. ⏳ Owner: Blaze billing on the project, and Firebase Authentication "Get started" once in the console.
+7. ⏳ `scripts/deploy_backend.sh`, then the GitHub variables `ORCID_EXCHANGE_URL` and `FIREBASE_WEB_API_KEY`, then a site redeploy and a live test with two real ORCID accounts.
+8. Security review before real team data; pilot with one team (#20). Member-confirmed membership (#23) builds on `status: "active"` and the disclosure record.
+
+## Personal sync
+
+`users/{orcid}/workspace/` holds the research-network workspace (the same export as "Download my workspace"), gzip-compressed and split into chunks of at most 800,000 characters, plus a manifest with a SHA-256 checksum. Only its owner can read or write it. Saving is explicit, with optional auto-save after changes. Loading verifies the checksum, shows a summary and asks before replacing the browser's workspace.

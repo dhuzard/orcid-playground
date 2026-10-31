@@ -1,6 +1,7 @@
 // Serves the network pilot's /api/* requests from the in-browser engine, so
 // web/network/app.js runs unchanged and the workspace never leaves this browser.
 import { call } from '/engine-client.js';
+import '/sync.js';
 
 const nativeFetch = window.fetch.bind(window);
 
@@ -17,6 +18,7 @@ window.fetch = async (input, init = {}) => {
   try {
     const body = init.body ?? (request && method !== 'GET' ? await request.text() : null);
     const reply = JSON.parse(await call('api', { method, target: url.pathname + url.search, body }));
+    if (method !== 'GET' && reply.status === 200) window.dispatchEvent(new Event('workspace-changed'));
     return new Response(decode(reply), { status: reply.status, headers: { 'Content-Type': reply.content_type } });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });

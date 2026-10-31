@@ -61,7 +61,8 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | KF-12 | Roster assertion export contract (#9) | P1 | in-review | session |
 | INF-08 | Static public showcase hosted on GCP | P2 | done | session |
 | INF-10 | Hosted in-browser playground (Studio + research network) | P1 | done | session |
-| INF-11 | ORCID sign-in on the hosted playground, verified live | P2 | planned | — |
+| INF-11 | ORCID sign-in on the hosted playground, verified live | P2 | done | owner |
+| KF-17 | Private team workspaces and personal cloud sync (#22) | P1 | in-review | session |
 | KF-13 | Shareable group links and evidence-backed collaboration graph (#15) | P1 | done | session |
 | KF-14 | Group record health and team biosketch for funders (#15 phase 2) | P1 | done | session |
 | KF-15 | Group Wrapped, card deck, <orcid-group> widget, offline app and digest (#15 phase 3) | P2 | done | session |
@@ -699,7 +700,7 @@ Phase 3 of issue #15.
 
 ## INF-11 — ORCID sign-in verified live
 
-- **Priority** P2 · **Status** planned · **Owner** — · **Rev** r1
+- **Priority** P2 · **Status** done · **Owner** owner · **Rev** r2
 - **Files** `web/playground/auth.js`, `docs/gcp-hosting.md`
 
 Split from INF-10. The OpenID Connect sign-in code is live but hidden because
@@ -712,9 +713,28 @@ covers token verification offline; `docs/gcp-hosting.md` has the registration
 steps and the live test checklist.
 
 **Acceptance criteria**
-- [ ] ORCID Public API client registered with redirect URI `https://orcid-playground-889.web.app/`.
-- [ ] `ORCID_CLIENT_ID` repository variable set and the site redeployed to live.
-- [ ] Sign-in, ID-token verification and sign-out tested on the live site.
+- [x] ORCID Public API client registered with redirect URI `https://orcid-playground-889.web.app/`.
+- [x] `ORCID_CLIENT_ID` repository variable set and the site redeployed to live.
+- [x] Sign-in, ID-token verification and sign-out tested on the live site. Confirmed by the owner on 2026-10-31.
+
+---
+
+## KF-17 — Private team workspaces and personal cloud sync
+
+- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Files** `docs/team-workspaces.md`, `firestore.rules`, `functions/exchange/`, `web/playground/cloud.js`,
+  `web/playground/team.js`, `web/playground/sync.js`, `tests/rules/`
+
+Supersedes INF-09's server design. ORCID sign-in is exchanged for a Firebase
+identity keyed by the ORCID iD; Firestore (EU) rules grant team access only
+through accepted invitations.
+
+**Acceptance criteria**
+- [x] Access rules tested in the emulator (19 cases) and in CI.
+- [x] Exchange function refuses forged, expired, foreign-audience and algorithm-confusion tokens (11 tests).
+- [x] End-to-end against emulators: create, invite, outsider refused, accept with disclosure, notes, leave with deletion, delete team, and save/clear/load of the personal workspace.
+- [ ] Function deployed (needs Blaze); live test with two real ORCID accounts.
+- [ ] Security review before real team data.
 
 ---
 
@@ -867,3 +887,5 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-31 | INF-11 | ORCID sign-in verification split from INF-10; awaits a registered client (#14) | — → planned |
 | 2026-10-31 | INF-10 | Deploy policy: main and weekly sync deploy live; previews on demand | policy |
 | 2026-10-31 | KF-16 | Workspace backup/restore, Studio "Me" panel and password-encrypted team packages, all in the browser | — → in-review |
+| 2026-10-31 | INF-11 | Live ORCID sign-in confirmed by the owner | planned → done |
+| 2026-10-31 | KF-17 | Team workspaces, exchange function and personal sync built; Firestore and rules live; function awaits Blaze | — → in-review |

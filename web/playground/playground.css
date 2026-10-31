@@ -122,6 +122,13 @@ h2{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:clamp(1
 }
 @media (max-width:760px){.graph-wrap{grid-template-columns:1fr}}
 
+.sync{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.sync label{font-size:.85rem;display:flex;gap:6px;align-items:center}
+.sync-status{font-size:.8rem;color:var(--muted);margin:6px 0 0}
+.row-actions{display:inline-flex;gap:6px;margin-left:8px;flex-wrap:wrap;vertical-align:middle}
+.invite{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.disclosure ul{margin:6px 0 10px;padding-left:20px}
+.disclosure label{display:flex;gap:8px;align-items:center;font-weight:600}
 .me{margin-top:0}
 .me-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
 .me-grid article{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}

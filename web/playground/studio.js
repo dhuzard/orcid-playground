@@ -1,6 +1,7 @@
 // Studio: one public ORCID record, every output the package can make.
 import { call } from '/engine-client.js';
-import { config, signIn, signOut, current, completeSignIn } from '/auth.js';
+import { config, signIn, signOut, current, completeSignIn, takeVerifiedToken, takeReturnPath } from '/auth.js';
+import * as cloud from '/cloud.js';
 
 const $ = selector => document.querySelector(selector);
 const status = $('#status');
@@ -278,7 +279,7 @@ function renderAccount(clientId) {
   const account = $('#account');
   const mine = $('#mine');
   if (session) {
-    account.replaceChildren(el('span', {}, session.name || session.orcid), el('button', { class: 'button quiet small', type: 'button', onclick: () => { signOut(); session = null; renderAccount(clientId); renderMe(null); if (outputs) render(); } }, 'Sign out'));
+    account.replaceChildren(el('span', {}, session.name || session.orcid), el('button', { class: 'button quiet small', type: 'button', onclick: () => { signOut(); cloud.signOutCloud(); session = null; renderAccount(clientId); renderMe(null); if (outputs) render(); } }, 'Sign out'));
     mine.replaceChildren(el('button', { type: 'button', class: 'chip me', onclick: () => explore(session.orcid) }, 'My record'));
   } else {
     account.replaceChildren(clientId ? el('button', { class: 'button small', type: 'button', onclick: () => signIn(clientId) }, 'Sign in with ORCID') : '');
@@ -291,6 +292,17 @@ function renderAccount(clientId) {
   try {
     const before = current();
     session = clientId ? await completeSignIn(clientId) : null;
+    // A fresh sign-in also opens team workspaces (if enabled), then returns where it started.
+    const token = takeVerifiedToken();
+    if (token) {
+      try {
+        await cloud.exchange(token);
+      } catch (error) {
+        say(`Signed in, but team workspaces are unavailable: ${error.message}`, { error: true });
+      }
+    }
+    const back = takeReturnPath();
+    if (back && back !== '/') return location.assign(back);
     renderAccount(clientId);
     refreshMe();
     if (session && !before) return explore(session.orcid);
