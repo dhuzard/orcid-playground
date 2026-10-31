@@ -1,0 +1,99 @@
+rules_version = '2';
+
+// Private team workspaces (docs/team-workspaces.md). The user id is the member's
+// ORCID iD, set by the token-exchange function after it verifies an ORCID ID token.
+// Access comes only from an active membership; knowing an id or a URL grants nothing.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function me() { return request.auth.uid; }
+    function signedIn() { return request.auth != null && me().matches('^[0-9]{4}-[0-9]{4}-[0-9]{4}-[0-9]{3}[0-9X]$'); }
+    function teamPath(teamId) { return /databases/$(database)/documents/teams/$(teamId); }
+    function memberPath(teamId, orcid) { return /databases/$(database)/documents/teams/$(teamId)/members/$(orcid); }
+    function isActive(teamId) {
+      return signedIn() && exists(memberPath(teamId, me())) && get(memberPath(teamId, me())).data.status == 'active';
+    }
+    function isCoordinator(teamId) { return isActive(teamId) && me() in get(teamPath(teamId)).data.coordinators; }
+    function changedKeys() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function hasDisclosure(data) {
+      return data.disclosure is map && data.disclosure.version is string && data.disclosure.acceptedAt is timestamp;
+    }
+
+    match /teams/{teamId} {
+      allow read: if isActive(teamId);
+
+      // The creator becomes sole coordinator; their own active membership is written in the same batch.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'description', 'createdBy', 'createdAt', 'coordinators'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+        && request.resource.data.createdBy == me()
+        && request.resource.data.coordinators == [me()]
+        && getAfter(memberPath(teamId, me())).data.status == 'active';
+
+      // Coordinators edit the team. Coordinators may be added one at a time and only from active
+      // members; removing coordinators (including oneself) is allowed while at least one remains.
+      allow update: if isCoordinator(teamId)
+        && changedKeys().hasOnly(['name', 'description', 'coordinators'])
+        && request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 120
+        && request.resource.data.coordinators.size() > 0
+        && (request.resource.data.coordinators.removeAll(resource.data.coordinators).size() == 0
+            || (request.resource.data.coordinators.removeAll(resource.data.coordinators).size() == 1
+                && get(memberPath(teamId, request.resource.data.coordinators.removeAll(resource.data.coordinators)[0])).data.status == 'active'));
+
+      allow delete: if isCoordinator(teamId);
+
+      match /members/{orcid} {
+        function validInvite() {
+          return request.resource.data.keys().hasOnly(['orcid', 'teamName', 'status', 'invitedBy', 'invitedAt', 'disclosure'])
+            && request.resource.data.orcid == orcid
+            && request.resource.data.teamName is string
+            && request.resource.data.invitedBy == me()
+            && request.resource.data.invitedAt is timestamp;
+        }
+
+        allow read: if isActive(teamId) || (signedIn() && me() == orcid);
+
+        allow create: if
+          // A coordinator invites someone; only the invitee can make it active.
+          (isCoordinator(teamId) && orcid != me() && validInvite()
+            && request.resource.data.status == 'invited' && request.resource.data.disclosure == null)
+          // The creator's own membership, written in the same batch as the new team.
+          || (signedIn() && orcid == me() && !exists(teamPath(teamId))
+            && getAfter(teamPath(teamId)).data.createdBy == me()
+            && validInvite() && request.resource.data.status == 'active' && hasDisclosure(request.resource.data));
+
+        // Only the invitee accepts, and only with a recorded disclosure.
+        allow update: if signedIn() && orcid == me()
+          && resource.data.status == 'invited' && request.resource.data.status == 'active'
+          && changedKeys().hasOnly(['status', 'disclosure']) && hasDisclosure(request.resource.data);
+
+        // Leave or decline (self), or remove (coordinator). Coordinators must be demoted first,
+        // so a team can never be left without one.
+        allow delete: if signedIn() && !(orcid in get(teamPath(teamId)).data.coordinators)
+          && (orcid == me() || isCoordinator(teamId));
+      }
+
+      match /entries/{entryId} {
+        function validEntry() {
+          return request.resource.data.keys().hasOnly(['kind', 'subject', 'text', 'author', 'createdAt', 'updatedAt'])
+            && request.resource.data.kind in ['role', 'contribution', 'note', 'request', 'output']
+            && request.resource.data.text is string && request.resource.data.text.size() <= 5000
+            && request.resource.data.author == me();
+        }
+        allow read: if isActive(teamId);
+        allow create: if isActive(teamId) && validEntry();
+        allow update: if isActive(teamId) && resource.data.author == me() && validEntry();
+        // Anyone may delete what they wrote or what was written about them.
+        allow delete: if isActive(teamId)
+          && (resource.data.author == me() || resource.data.subject == me() || isCoordinator(teamId));
+      }
+    }
+
+    // Invitees find their invitations with a collection-group query on "members" filtered by
+    // orcid == their iD. The field (not the document id) is what a query can prove; member
+    // documents are only created with orcid equal to their id.
+    match /{path=**}/members/{orcid} {
+      allow read: if signedIn() && resource.data.orcid == me();
+    }
+  }
+}

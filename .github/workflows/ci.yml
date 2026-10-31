@@ -17,3 +17,20 @@ jobs:
       - run: pytest -q
       - run: node --test web/orcid-biosketch.test.mjs web/orcid-group.test.mjs web/network/app.test.mjs web/playground/digest.test.mjs web/playground/auth.test.mjs
 
+  rules:
+    # Firestore security rules for private team workspaces, in the emulator.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tests/rules
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm test
