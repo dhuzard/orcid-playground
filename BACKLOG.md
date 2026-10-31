@@ -834,3 +834,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-31 | INF-10 | Live at orcid-playground-889.web.app (run 41182335060); verified in headless Chrome on the live site; sign-in split to INF-11 | in-review → done |
 | 2026-10-31 | KF-13, KF-14, KF-15 | Merged (#16, #17, #18), deployed live and verified on the live site; #15 closed | in-review → done |
 | 2026-10-31 | INF-11 | ORCID sign-in verification split from INF-10; awaits a registered client (#14) | — → planned |
+| 2026-10-31 | INF-10 | Deploy policy: main and weekly sync deploy live; previews on demand | policy |

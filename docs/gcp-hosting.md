@@ -89,29 +89,39 @@ The site is static, so the cheapest and smallest-attack-surface option is a buck
 | **Firebase Hosting** (a GCP product) | Best for a quick shareable `*.web.app` URL | Free tier, managed TLS, one command deploy, preview channels for review |
 | Cloud Run (nginx container) | Overkill now | Only worthwhile when a server component such as the network pilot becomes a shared service |
 
-Start with **Firebase Hosting preview channels** to share a link this week, then move to bucket + CDN if a custom domain and IAM-governed hosting are wanted.
+Firebase Hosting is in use today (live site plus on-demand preview channels); move to bucket + CDN if a custom domain and IAM-governed hosting are wanted.
 
 ## Pipeline
 
-1. `sync.yml` already regenerates `generated/` daily and commits it.
-2. Add `deploy.yml`, triggered on push to `main` touching `generated/**` or `web/**` plus `workflow_dispatch`.
-3. It assembles `site/` by copying `generated/`, `web/orcid-biosketch.js` and `examples/plain-html.html` as `index.html` (with the component `src` pointed at the relative `generated/biosketch.json`), then runs `gcloud storage rsync --delete-unmatched-destination-objects` (or `firebase deploy`).
-4. Authenticate with **Workload Identity Federation** (`google-github-actions/auth`) restricted to this repository; the workflow itself refuses to deploy anything but `main` to the live channel. No service-account JSON keys in GitHub secrets.
-5. The deploy service account gets only `roles/storage.objectAdmin` on the one bucket.
+`.github/workflows/deploy-hosting.yml` builds `site/` with `scripts/build_site.py` and deploys it with a pinned `firebase-tools`:
 
-Note the CI-created commit from `sync.yml` uses `GITHUB_TOKEN`, which does not trigger other workflows. Either call the deploy as a final step of `sync.yml` or use `workflow_run`.
+| Trigger | Ref deployed | Channel | Environment |
+| --- | --- | --- | --- |
+| Push to `main` touching `generated/**`, `web/**`, `src/**`, `firebase.json` or `scripts/build_site.py` | `main` | `live` | `live` |
+| Successful weekly `sync.yml` run on `main` (`workflow_run`) | `main` | `live` | `live` |
+| Manual `workflow_dispatch` (default `channel=preview`) | the dispatched branch | temporary channel, 30-day expiry | `preview` |
+| Manual `workflow_dispatch` with `channel=live` | `main` only | `live` | `live` |
+
+1. `sync.yml` regenerates `generated/` weekly (Monday 04:17 UTC, or on demand) and commits only when the ORCID-derived output changes. That commit uses `GITHUB_TOKEN`, which does not trigger push workflows, so the deploy listens for the sync's `workflow_run` instead and redeploys `main` to live.
+2. Merging a pull request to `main` deploys the site to live; there is no manual promotion step.
+3. Feature branches are previewed on demand: **Actions → Deploy playground → Run workflow**, pick the branch, keep `channel=preview` (or another lowercase id). The run prints the temporary `*.web.app` URL.
+4. Two guards keep non-`main` code off live: the workflow refuses `channel=live` unless the ref is `refs/heads/main`, and the job runs in the GitHub deployment environment `live` (restricted to the `main` branch) for live deploys and `preview` (unrestricted) otherwise.
+5. Authenticate with **Workload Identity Federation** (`google-github-actions/auth`) restricted to this repository. No service-account JSON keys in GitHub secrets.
 
 ## Bucket settings
 
 - Uniform bucket-level access; public read via the load balancer backend bucket rather than `allUsers` on the bucket where a custom domain is used.
-- `Cache-Control: public, max-age=300` on JSON and `max-age=3600` on SVG. The daily sync makes longer caches pointless.
+- `Cache-Control: public, max-age=300` on JSON and `max-age=3600` on SVG. Regular syncs make longer caches pointless.
 - CORS on `generated/*` allowing `GET` from sites that embed the component.
 - Headers: `Content-Security-Policy: default-src 'self'; img-src 'self' data:; script-src 'self'`, `X-Content-Type-Options: nosniff`. SVGs are served as `image/svg+xml` and only embedded through `<img>`, never inlined, because ORCID text is untrusted.
 - Pin the component by tag or commit rather than `@main` on the jsDelivr URL for any site you do not control.
 
 ## Decisions taken
 
-- Share through **Firebase Hosting preview channels** first (30-day expiry, `*.web.app` URL). Promote to `live` by running the workflow manually with `channel=live`.
+- `main` is the live site: every merge to `main` and every successful weekly ORCID sync deploys to the Firebase Hosting `live` channel automatically.
+- ORCID data are refreshed **weekly**, not daily, to stay well clear of continuous polling.
+- Branch previews are on demand only, through `workflow_dispatch` to a temporary 30-day preview channel.
+- GitHub deployment environments are the server-side guard: `live` accepts only `main`, `preview` accepts any branch.
 - Region: **EU**. Firebase Hosting itself is served from Google's global CDN and has no region setting. The EU choice applies to everything that stores data: Cloud Run `europe-west1`, Firestore/Cloud SQL `eur3`/`europe-west1`, buckets `EU`.
 
 ## One-time GCP setup for the static showcase

@@ -3,11 +3,13 @@ on:
   workflow_dispatch:
     inputs:
       channel:
-        description: "Preview channel id (use 'live' only after review)"
+        description: "Temporary 30-day preview channel id; 'live' is accepted only from main"
         default: preview
+  # Merges to main and the weekly ORCID sync on main deploy straight to live.
   workflow_run:
     workflows: ["Synchronize ORCID biosketch"]
     types: [completed]
+    branches: [main]
   push:
     branches: [main]
     paths: ["generated/**", "web/**", "src/**", "firebase.json", "scripts/build_site.py"]
@@ -16,16 +18,19 @@ permissions:
   id-token: write
 concurrency:
   # One queue per channel, so a branch preview never cancels a deploy from main.
-  group: deploy-hosting-${{ github.event.inputs.channel || 'preview' }}
+  group: deploy-hosting-${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.channel || 'preview') || 'live' }}
   cancel-in-progress: true
 jobs:
   deploy:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    # Server-side guard: the `live` environment only accepts main; `preview` is unrestricted.
+    environment: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.channel == 'live') && 'live' || 'preview' }}
+    env:
+      CHANNEL: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.channel || 'preview') || 'live' }}
     steps:
       - name: Check the requested channel
         env:
-          CHANNEL: ${{ github.event.inputs.channel || 'preview' }}
           REF: ${{ github.ref }}
         run: |
           if ! [[ "$CHANNEL" =~ ^[a-z0-9-]{1,40}$ ]]; then
@@ -50,7 +55,6 @@ jobs:
           service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
       - name: Deploy
         env:
-          CHANNEL: ${{ github.event.inputs.channel || 'preview' }}
           PROJECT: ${{ vars.GCP_PROJECT_ID }}
         run: |
           if [ "$CHANNEL" = "live" ]; then
