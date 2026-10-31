@@ -19,6 +19,33 @@ Not shown: the Group view (it needs live ORCID records) and sign-in with ORCID. 
 | `clip-5-research-network` | ~20 s | Feed, people, working groups |
 | `clip-6-citations-and-data` | ~8 s | BibTeX, RIS, CSL, JSON-LD, Markdown |
 
+## Working-group demo
+
+`node demo/groups.mjs site` renders a ~130 s long cut and six 1080x1080 clips (`groups-*.mp4`).
+
+- Part 1 (roster, roles, project outputs, requests, team pack) is the network app's labelled **Demo** workspace.
+- Part 2 (Group view: graph, shared outputs, record health, team biosketch, Wrapped, card deck, embed) needs ORCID
+  records, so `demo/synthetic.mjs` serves four **fictional, "(Demo)"-labelled** researchers in place of
+  `pub.orcid.org`. Their DOIs use Crossref's test prefix 10.5555. Nothing in that part is a real record, and the
+  videos say so on screen. Re-record it against real public iDs, with your consent, for a version with real people.
+- Not shown: encrypted team packages and sign-in with ORCID.
+
+| File | Length | Message |
+|---|---|---|
+| `groups-full-demo.mp4` | ~130 s | Working group, then the shareable Group view |
+| `groups-clip-1-roster-and-roles` | ~10 s | Roles and contributions, recorded locally |
+| `groups-clip-2-project-outputs-and-requests` | ~23 s | Select project outputs, track requests |
+| `groups-clip-3-team-pack` | ~11 s | One download: roster, bibliography, biosketches |
+| `groups-clip-4-group-from-orcid-ids` | ~23 s | A group link from public iDs; DOI-linked graph |
+| `groups-clip-5-record-health-and-team-biosketch` | ~20 s | What to fix together; funder-format team draft |
+| `groups-clip-6-wrapped-cards-embed` | ~18 s | Group Wrapped, card deck, embed |
+
+Group post copy (drafts):
+- **Long cut.** Research is a team sport, but team admin is not. Curate a roster, pick the project's outputs, track requests, and see who has published together, from public ORCID records alone. Membership is yours to curate and is never presented as verified. Open source, stored in your browser.
+- **Clip 4.** Paste a list of ORCID iDs, get a group link. Two members are linked only when both public records assert the same DOI. (Demo with fictional researchers.)
+- **Clip 5.** What should the whole group fix in its ORCID records? Group record health ranks the most common issues, then drafts a team biosketch in ERC, NIH or Horizon format.
+- **Clip 3.** One download for the team: roster, merged bibliography, member biosketches and a manifest of exactly what was selected.
+
 ## LinkedIn copy (drafts)
 
 **Full demo.** Your ORCID record already holds a decade of your work. What if you could reuse it, on your terms?
