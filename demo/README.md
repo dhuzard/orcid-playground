@@ -46,6 +46,22 @@ Group post copy (drafts):
 - **Clip 5.** What should the whole group fix in its ORCID records? Group record health ranks the most common issues, then drafts a team biosketch in ERC, NIH or Horizon format.
 - **Clip 3.** One download for the team: roster, merged bibliography, member biosketches and a manifest of exactly what was selected.
 
+## Contacts demo
+
+`node demo/contacts.mjs site` renders a ~67 s cut and four 1080x1080 clips (`contacts-*.mp4`). The contacts are imported by
+ORCID iD, so the same fictional "(Demo)" researchers (`demo/synthetic.mjs`) are served in place of the live API. Context,
+tags, notes and follow-ups are typed live in the recording.
+
+| File | Length | Message |
+|---|---|---|
+| `contacts-full-demo.mp4` | ~67 s | Import and tag, notes, follow-ups, contexts |
+| `contacts-clip-1-import-and-tag` | ~18 s | Tag everyone from one conference |
+| `contacts-clip-2-notes-and-follow-ups` | ~19 s | Private notes and follow-ups with due dates |
+| `contacts-clip-3-open-follow-ups` | ~9 s | One list of what you owe people |
+| `contacts-clip-4-context-to-group` | ~10 s | Turn a conference context into a working group |
+
+Post copy (draft): *You met twelve people at the conference. A month later, who wanted the protocol? Contacts lets you tag people by event, keep private notes, and track follow-ups. All in your browser, never in a team pack, and the people never see it.*
+
 ## LinkedIn copy (drafts)
 
 **Full demo.** Your ORCID record already holds a decade of your work. What if you could reuse it, on your terms?
