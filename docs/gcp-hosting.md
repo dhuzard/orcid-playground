@@ -67,7 +67,7 @@ gh variable set ORCID_CLIENT_ID --repo dhuzard/orcid-playground --body APP-XXXXX
 gh workflow run deploy-hosting.yml --repo dhuzard/orcid-playground --ref main -f channel=live
 ```
 
-Pushes to `main` deploy only the preview channel, so the live site needs the manual `channel=live` run. The build writes the id into `config.json`; an empty value hides the button again. Check it with `curl -s https://orcid-playground-889.web.app/config.json`.
+Setting a variable is not a push, so nothing redeploys by itself; the manual `channel=live` run rebuilds the site with the new id (the next merge to `main` would also do it). The build writes the id into `config.json`; an empty value hides the button again. Check it with `curl -s https://orcid-playground-889.web.app/config.json`.
 
 ### Manual test on the live site
 
