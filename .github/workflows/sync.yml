@@ -2,7 +2,8 @@ name: Synchronize ORCID biosketch
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 4 * * *"
+    # Weekly, Monday 04:17 UTC; a successful run on main triggers a live deploy.
+    - cron: "17 4 * * 1"
 permissions:
   contents: write
 jobs:
