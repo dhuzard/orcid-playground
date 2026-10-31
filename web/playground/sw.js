@@ -8,7 +8,7 @@ const VERSION = '__BUILD__';
 const CACHE = `orcid-playground-${VERSION}`;
 // Kept across deploys: re-downloading the ~14 MB runtime for every site change would be wasteful.
 const RUNTIME = 'orcid-playground-runtime';
-const SHELL = ['/', '/network/', '/group/', '/team/', '/cloud.js', '/team.js', '/playground.css', '/studio.js', '/group.js', '/group-link.js', '/digest.js',
+const SHELL = ['/', '/network/', '/group/', '/team/', '/cloud.js', '/team.js', '/playground.css', '/studio.js', '/group.js', '/group-link.js', '/digest.js', '/teampack.js',
   '/engine.js', '/engine-client.js', '/auth.js', '/network-bridge.js', '/orcid-biosketch.js', '/orcid-group.js',
   '/network/app.js', '/network/style.css', '/py/orcid_biosketch.zip', '/generated/biosketch.json',
   '/manifest.webmanifest', '/icon.svg'];

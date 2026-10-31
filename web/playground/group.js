@@ -1,6 +1,7 @@
 // Group view: a shareable link of public ORCID iDs, rendered live in the browser.
 import { call } from '/engine-client.js';
 import { decodeGroup, encodeGroup, parseIds, MAX_MEMBERS } from '/group-link.js';
+import { decryptPack, encryptPack, MIN_PASSWORD } from '/teampack.js';
 
 const $ = selector => document.querySelector(selector);
 const SVG = 'http://www.w3.org/2000/svg';
@@ -320,10 +321,143 @@ $('#adopt').addEventListener('click', async () => {
   }
 });
 
+// ---- Encrypted team packages ----------------------------------------------
+// A coordinator hands a whole group, local details included, to a teammate as a
+// password-protected file. Encryption and decryption happen in this browser.
+
+const MAX_PACK_BYTES = 50 * 1024 * 1024;
+let packGroupsLoaded = false;
+let preferredPackGroup = null;
+let pendingPack = null;
+
+function packSay(message, { busy = false, error = false } = {}) {
+  $('#pack-status').classList.toggle('error', error);
+  $('#pack-status').replaceChildren(message, busy ? el('span', { class: 'bar', 'aria-hidden': 'true' }) : '');
+}
+
+function saveFile(text, filename, type) {
+  const link = el('a', { href: URL.createObjectURL(new Blob([text], { type })), download: filename });
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+async function loadPackGroups() {
+  packSay('Reading the groups in your research network…', { busy: true });
+  try {
+    const state = JSON.parse(JSON.parse(await call('api', { method: 'GET', target: '/api/state' })).body);
+    const select = $('#pack-group');
+    select.replaceChildren(...state.groups.map(g => el('option', { value: g.id }, `${g.name} (${g.member_ids.length} member${g.member_ids.length === 1 ? '' : 's'})`)));
+    if (!state.groups.length) select.append(el('option', { value: '' }, 'No groups in this browser’s network yet'));
+    if (state.groups.some(g => g.id === preferredPackGroup)) select.value = preferredPackGroup;
+    packGroupsLoaded = true;
+    packSay('');
+  } catch (error) {
+    packSay(`Could not read your research network: ${error.message}`, { error: true });
+  }
+}
+
+$('#packages-details').addEventListener('toggle', () => {
+  if ($('#packages-details').open && !packGroupsLoaded) loadPackGroups();
+});
+
+$('#pack-export').addEventListener('submit', async event => {
+  event.preventDefault();
+  const select = $('#pack-group');
+  const password = $('#pack-password').value;
+  if (!select.value) return packSay('Choose a group from your research network.', { error: true });
+  if (password.length < MIN_PASSWORD) return packSay(`Choose a password of at least ${MIN_PASSWORD} characters.`, { error: true });
+  if (password !== $('#pack-password-again').value) return packSay('The two passwords do not match.', { error: true });
+  const name = select.selectedOptions[0].textContent;
+  if (!confirm(`Encrypt “${name}” into a file?\n\nIt will contain the members’ public ORCID records as last read into your network, and your local roles, expertise, contributions, selected outputs and requests for this group.\n\nAnyone with the file and the password can read all of it. The people listed have not confirmed their membership or these details.`)) return;
+  const button = event.submitter || $('#pack-export button');
+  button.disabled = true;
+  packSay('Encrypting in this browser…', { busy: true });
+  try {
+    const plaintext = await call('exportGroupPackage', { id: select.value });
+    const pack = await encryptPack(plaintext, password);
+    const slug = name.replace(/\s*\(\d+ members?\)$/, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'group';
+    saveFile(JSON.stringify(pack), `${slug}-team-package.json`, 'application/json');
+    $('#pack-password').value = '';
+    $('#pack-password-again').value = '';
+    packSay('Team package saved. Send the password by a different channel than the file.');
+  } catch (error) {
+    packSay(`Could not make the team package: ${error.message}`, { error: true });
+  } finally {
+    button.disabled = false;
+  }
+});
+
+function packPreview(preview) {
+  const made = Number.isNaN(Date.parse(preview.exported_at)) ? 'at an unknown date' : `on ${new Date(preview.exported_at).toLocaleString()}`;
+  const known = preview.members.filter(m => m.in_network).length;
+  const add = el('button', { class: 'button accent', type: 'button', onclick: async () => {
+    if (!confirm(`Add “${preview.name}” as a new group to the research network stored in this browser, with ${preview.members.length - known} new people?`)) return;
+    add.disabled = true;
+    packSay('Adding the group to your network…', { busy: true });
+    try {
+      const { group_id: id } = JSON.parse(await call('importGroupPackage', { text: pendingPack }));
+      pendingPack = null;
+      packGroupsLoaded = false;
+      $('#pack-preview').replaceChildren(el('p', {}, `“${preview.name}” was added to your research network. `,
+        el('a', { href: `/network/#groups/${encodeURIComponent(id)}` }, 'Open it →')));
+      packSay('');
+    } catch (error) {
+      add.disabled = false;
+      packSay(`Could not add the group: ${error.message}`, { error: true });
+    }
+  } }, 'Add this group to my research network');
+  const cancel = el('button', { class: 'button quiet', type: 'button', onclick: () => { pendingPack = null; $('#pack-preview').replaceChildren(); packSay(''); } }, 'Cancel');
+  $('#pack-preview').replaceChildren(
+    el('h3', {}, `What will be added: ${preview.name}`),
+    preview.description ? el('p', {}, preview.description) : '',
+    el('div', { class: 'disclosure' }, el('b', {}, 'Before you add it'),
+      el('p', {}, `This package was made ${made}. Membership, roles, expertise and contributions were recorded by whoever made it and are not confirmed by the people listed. Records are copies of public ORCID records as they last read them. ${known ? `${known} of these people are already in your network; your copy of their record is kept.` : ''}`)),
+    el('div', { class: 'table-scroll' }, el('table', { class: 'pairs' }, el('caption', {}, `Members (${preview.members.length})`),
+      el('thead', {}, el('tr', {}, ['Member', 'ORCID iD', 'Role', 'Expertise', 'Contribution', 'In your network'].map(h => el('th', { scope: 'col' }, h)))),
+      el('tbody', {}, preview.members.map(m => el('tr', {},
+        el('td', {}, m.name, m.demo ? el('span', { class: 'muted' }, ' (sample)') : ''),
+        el('td', {}, m.orcid || '—'), el('td', {}, m.role || '—'), el('td', {}, m.expertise || '—'), el('td', {}, m.contribution || '—'),
+        el('td', {}, m.in_network ? 'Yes, kept' : 'New')))))),
+    el('h3', {}, `Selected project outputs (${preview.selected_outputs.length})`),
+    preview.selected_outputs.length ? el('ul', { class: 'outputs' }, preview.selected_outputs.map(title => el('li', {}, title))) : el('p', { class: 'muted' }, 'None.'),
+    el('h3', {}, `Requests (${preview.requests.length})`),
+    preview.requests.length ? el('ul', { class: 'outputs' }, preview.requests.map(r => el('li', {}, el('b', {}, r.title),
+      el('div', { class: 'muted' }, [r.status, r.owner ? `owner ${r.owner}` : 'unassigned', r.due_date ? `due ${r.due_date}` : ''].filter(Boolean).join(' · '))))) : el('p', { class: 'muted' }, 'None.'),
+    el('div', { class: 'result-actions' }, add, cancel));
+}
+
+$('#pack-import').addEventListener('submit', async event => {
+  event.preventDefault();
+  const [file] = $('#pack-file').files;
+  if (!file) return packSay('Choose a team package file.', { error: true });
+  if (file.size > MAX_PACK_BYTES) return packSay('This file is too large to be a team package.', { error: true });
+  const button = event.submitter || $('#pack-import button');
+  button.disabled = true;
+  pendingPack = null;
+  $('#pack-preview').replaceChildren();
+  packSay('Decrypting in this browser…', { busy: true });
+  try {
+    let envelope;
+    try { envelope = JSON.parse(await file.text()); } catch { throw new Error('This is not an ORCID Playground team package.'); }
+    const text = await decryptPack(envelope, $('#pack-open-password').value);
+    const preview = JSON.parse(await call('previewGroupPackage', { text }));
+    $('#pack-open-password').value = '';
+    pendingPack = text;
+    packSay('Decrypted. Nothing has been added yet.');
+    packPreview(preview);
+  } catch (error) {
+    packSay(error.message, { error: true });
+  } finally {
+    button.disabled = false;
+  }
+});
+
 // ---- Routing -------------------------------------------------------------
 
 // The network app links here with ?from=<group id>: build the link from that group's real iDs.
 async function fromWorkspace(groupId) {
+  preferredPackGroup = groupId;
+  if (packGroupsLoaded) $('#pack-group').value = groupId;
   say('Reading the group from your research network…', { busy: true });
   const state = JSON.parse(JSON.parse(await call('api', { method: 'GET', target: '/api/state' })).body);
   const source = state.groups.find(g => g.id === groupId);
@@ -343,7 +477,12 @@ async function route() {
   $('#view').hidden = true;
   $('#load').textContent = 'Read the public records';
   try {
-    const from = new URLSearchParams(location.search).get('from');
+    const params = new URLSearchParams(location.search);
+    if (params.has('packages')) {
+      $('#packages-details').open = true;
+      $('#packages').scrollIntoView({ block: 'start' });
+    }
+    const from = params.get('from');
     if (from) await fromWorkspace(from);
     if (!location.hash) {
       show('#compose');

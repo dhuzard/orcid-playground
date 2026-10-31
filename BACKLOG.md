@@ -66,6 +66,7 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | KF-14 | Group record health and team biosketch for funders (#15 phase 2) | P1 | done | session |
 | KF-15 | Group Wrapped, card deck, <orcid-group> widget, offline app and digest (#15 phase 3) | P2 | done | session |
 | INF-09 | Hosted multi-researcher service on Cloud Run | P2 | planned | — |
+| KF-16 | Personal saving and encrypted team packages | P1 | in-review | session |
 
 ---
 
@@ -762,6 +763,36 @@ dhuzard/oratlas#202.
 
 ---
 
+## KF-16 — Personal saving and encrypted team packages
+
+- **Priority** P1 · **Status** in-review · **Owner** session · **Rev** r1
+- **Files** `src/orcid_biosketch/network_store.py`, `src/orcid_biosketch/playground.py`,
+  `web/playground/teampack.js`, `web/playground/network-bridge.js`, `web/playground/studio.js`,
+  `web/playground/group.js`, `web/playground/engine.js`, `tests/test_workspace_backup.py`,
+  `web/playground/teampack.test.mjs`
+
+Track 1 of saving without a server. Everything stays in the visitor's browser
+until they save a file; nothing is uploaded and no new origin is contacted.
+
+**Acceptance criteria**
+- [x] "Download my workspace" saves a versioned `orcid-playground-workspace` v1 file; "Restore from file"
+      validates strictly (unknown versions, unexpected fields, forged or mismatched iDs, outsiders in groups,
+      bad dates or roles are refused), confirms that it replaces this browser's workspace, then writes it in
+      one transaction (`tests/test_workspace_backup.py`: round trip, rejections, no partial write on failure).
+- [x] Studio "Me" panel when signed in: my record check grade with one-click open, "Follow me in my network",
+      and the network groups that list my iD, read only from this browser.
+- [x] Encrypted team package: a group with its members' records and local roles, expertise, contributions,
+      selections and requests, encrypted in the browser (PBKDF2-SHA256, 310000 iterations, 16-byte salt;
+      AES-GCM-256, 12-byte IV; header authenticated). Import asks for the password, previews exactly what
+      will be added, then adds it as a new group; local copies of known people are kept
+      (`web/playground/teampack.test.mjs`: round trip, wrong password, tampering).
+- [x] Disclosure wherever data leaves the browser: what the file contains, who can read it, membership unconfirmed.
+- [x] Headless Chrome under the Firebase headers: backup, bad file refused, clear and restore; package export,
+      wrong password, preview rendering untrusted text as text, import; Me panel follow, groups and grade.
+- [ ] Merged and verified on the live site.
+
+---
+
 ## Change log
 
 Append-only. Newest entries at the bottom. One line per status or scope change.
@@ -835,3 +866,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-10-31 | KF-13, KF-14, KF-15 | Merged (#16, #17, #18), deployed live and verified on the live site; #15 closed | in-review → done |
 | 2026-10-31 | INF-11 | ORCID sign-in verification split from INF-10; awaits a registered client (#14) | — → planned |
 | 2026-10-31 | INF-10 | Deploy policy: main and weekly sync deploy live; previews on demand | policy |
+| 2026-10-31 | KF-16 | Workspace backup/restore, Studio "Me" panel and password-encrypted team packages, all in the browser | — → in-review |

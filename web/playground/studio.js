@@ -120,6 +120,98 @@ function tabKeys(event) {
   showTab(next.dataset.tab);
 }
 
+// ---- "Me": the signed-in visitor's own corner, read from this browser only ----
+
+const MY_CHECK = 'orcid-playground-my-check';
+
+function rememberMyCheck() {
+  const orcid = outputs?.biosketch?.person?.orcid;
+  if (!session || orcid !== session.orcid) return;
+  try {
+    localStorage.setItem(MY_CHECK, JSON.stringify({ orcid, grade: outputs.lint.grade, percentage: outputs.lint.percentage, checked_at: new Date().toISOString() }));
+  } catch { /* Storage unavailable: the grade shows while this record is open. */ }
+}
+
+function myCheck() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MY_CHECK));
+    return saved?.orcid === session?.orcid ? saved : null;
+  } catch { return null; }
+}
+
+async function workspace(method, target, body) {
+  const reply = JSON.parse(await call('api', { method, target, body: body === undefined ? null : JSON.stringify(body) }));
+  const data = JSON.parse(reply.body);
+  if (reply.status !== 200) throw new Error(data.error);
+  return data;
+}
+
+let meBusy = false;
+let meState = null;
+async function followMe() {
+  if (meBusy) return;
+  meBusy = true;
+  renderMe(meState, 'Reading your public ORCID record into your network…');
+  let message = 'Your record is in your network and followed.';
+  try {
+    await workspace('POST', '/api/import', { orcid: session.orcid });
+    meState = await workspace('POST', '/api/follow', { id: session.orcid, following: true });
+  } catch (error) {
+    message = `Could not follow your record: ${error.message}`;
+  }
+  meBusy = false;
+  renderMe(meState, message);
+}
+
+function renderMe(state, message = '') {
+  const panel = $('#me');
+  meState = state;
+  if (!session) {
+    panel.hidden = true;
+    panel.replaceChildren();
+    return;
+  }
+  const check = myCheck();
+  const me = state?.people.find(p => p.id === session.orcid);
+  const groups = state ? state.groups.filter(g => g.member_ids.includes(session.orcid)) : [];
+  const card = (title, ...children) => el('article', {}, el('h3', {}, title), ...children);
+  const button = (label, onclick, kind = 'quiet') => el('button', { class: `button ${kind} small`, type: 'button', disabled: meBusy, onclick }, label);
+  panel.replaceChildren(
+    el('div', { class: 'eyebrow' }, 'ME · IN THIS BROWSER'),
+    el('h2', { id: 'me-title' }, session.name || session.orcid),
+    el('p', { class: 'muted small' }, `Signed in as ORCID ${session.orcid} for this tab.`),
+    el('div', { class: 'me-grid' },
+      card('My record check',
+        check ? el('div', { class: 'grade' }, check.grade, el('small', {}, `${check.percentage}%`)) : el('p', { class: 'muted' }, 'Not checked in this browser yet.'),
+        check ? el('p', { class: 'muted small' }, `Checked ${new Date(check.checked_at).toLocaleString()}.`) : '',
+        button(check ? 'Open my record again' : 'Open my record', () => explore(session.orcid), 'accent')),
+      card('My network',
+        el('p', { class: 'muted small' }, !state ? 'Reading the research network stored in this browser…'
+          : me?.following ? `You are in your network and followed. Last read from ORCID ${me.last_checked ? new Date(me.last_checked).toLocaleString() : 'at an unknown time'}.`
+            : me ? 'You are in your network but not followed.' : 'Your record is not in your network yet. Following reads your public ORCID record once.'),
+        state ? button(me?.following ? 'Read my record again' : 'Follow me in my network', followMe, me?.following ? 'quiet' : 'accent') : '',
+        state ? el('a', { href: '/network/#people' }, 'Open the research network →') : ''),
+      card('Groups I’m in',
+        !state ? el('p', { class: 'muted small' }, '…')
+          : groups.length ? el('ul', { class: 'me-groups' }, groups.map(group => el('li', {},
+            el('a', { href: `/network/#groups/${encodeURIComponent(group.id)}` }, group.name),
+            group.member_details?.[session.orcid]?.role ? el('span', { class: 'muted' }, ` · ${group.member_details[session.orcid].role}`) : '')))
+            : el('p', { class: 'muted small' }, 'No group in your network lists your iD.'))),
+    message ? el('p', { class: 'status', role: 'status' }, message) : '',
+    el('p', { class: 'muted small' }, 'Read from this browser only; nothing here is sent anywhere. Groups and roles are what your own network records: the other members have not confirmed them.'));
+  panel.hidden = false;
+}
+
+async function refreshMe() {
+  renderMe(null);
+  if (!session) return;
+  try {
+    renderMe(await workspace('GET', '/api/state'));
+  } catch (error) {
+    renderMe(null, `Could not read your network: ${error.message}`);
+  }
+}
+
 function render() {
   const { person, provenance } = outputs.biosketch;
   $('#r-orcid').textContent = `ORCID ${person.orcid}`;
@@ -130,6 +222,10 @@ function render() {
   $('#to-network').href = `/network/?import=${encodeURIComponent(person.orcid)}`;
   const source = fromStoredCopy ? `a stored copy of the public ORCID record (synchronized ${provenance?.generated_at})` : 'the public ORCID record, read just now';
   $('#r-provenance').textContent = `Generated in your browser from ${source}. Outputs re-express asserted fields only and do not verify identity, authorship or affiliations.`;
+  if (session?.orcid === person.orcid) {
+    rememberMyCheck();
+    renderMe(meState);
+  }
   $('#tabs').replaceChildren(...Object.keys(TABS).map((name, i) => el('button', { type: 'button', role: 'tab', id: `tab-${i}`, 'aria-controls': 'panel', 'data-tab': name, onclick: () => showTab(name) }, name)));
   $('#result').hidden = false;
   showTab('Profile');
@@ -183,7 +279,7 @@ function renderAccount(clientId) {
   const account = $('#account');
   const mine = $('#mine');
   if (session) {
-    account.replaceChildren(el('span', {}, session.name || session.orcid), el('button', { class: 'button quiet small', type: 'button', onclick: () => { signOut(); cloud.signOutCloud(); session = null; renderAccount(clientId); if (outputs) render(); } }, 'Sign out'));
+    account.replaceChildren(el('span', {}, session.name || session.orcid), el('button', { class: 'button quiet small', type: 'button', onclick: () => { signOut(); cloud.signOutCloud(); session = null; renderAccount(clientId); renderMe(null); if (outputs) render(); } }, 'Sign out'));
     mine.replaceChildren(el('button', { type: 'button', class: 'chip me', onclick: () => explore(session.orcid) }, 'My record'));
   } else {
     account.replaceChildren(clientId ? el('button', { class: 'button small', type: 'button', onclick: () => signIn(clientId) }, 'Sign in with ORCID') : '');
@@ -208,6 +304,7 @@ function renderAccount(clientId) {
     const back = takeReturnPath();
     if (back && back !== '/') return location.assign(back);
     renderAccount(clientId);
+    refreshMe();
     if (session && !before) return explore(session.orcid);
   } catch (error) {
     renderAccount(clientId);
