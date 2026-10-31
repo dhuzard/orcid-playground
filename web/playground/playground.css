@@ -122,6 +122,18 @@ h2{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:clamp(1
 }
 @media (max-width:760px){.graph-wrap{grid-template-columns:1fr}}
 
+.me{margin-top:0}
+.me-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:12px 0}
+.me-grid article{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.me-grid h3{margin:0;font-size:1rem}
+.me-grid p{margin:0}
+.me-groups{margin:0;padding-left:18px;overflow-wrap:anywhere}
+.packages summary{cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.packages h3{margin:24px 0 8px}
+.stack select,.stack input[type=file]{font-weight:400;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--white)}
+.table-scroll{overflow-x:auto;margin:12px 0}
+.table-scroll td{vertical-align:top;overflow-wrap:anywhere;min-width:90px}
+
 .site-footer{max-width:1120px;margin:0 auto;padding:24px 16px 48px;font-size:.85rem;color:var(--muted);border-top:1px solid var(--line)}
 
 @media (max-width:760px){

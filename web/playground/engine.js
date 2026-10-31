@@ -46,6 +46,16 @@ async function withWorkspace(py, write, task) {
   return self.navigator.locks ? self.navigator.locks.request('orcid-playground-workspace', run) : run();
 }
 
+const WORKSPACE_FILE = `${WORKSPACE}/network.sqlite3`;
+
+// Call only inside withWorkspace, which has just reloaded the stored copy.
+function openWorkspace(state) {
+  // Another tab may have cleared the workspace since this one last opened it.
+  if (!state.py.FS.analyzePath(WORKSPACE_FILE).exists) state.workspace = null;
+  state.workspace ??= state.engine.Workspace(WORKSPACE_FILE);
+  return state.workspace;
+}
+
 const ready = (async () => {
   const py = await loadPyodide({ indexURL: PYODIDE });
   await py.loadPackage('sqlite3');
@@ -88,13 +98,26 @@ const operations = {
     return engine.group_extras(name, bios);
   },
   async api(state, { method, target, body }) {
-    const file = `${WORKSPACE}/network.sqlite3`;
-    return withWorkspace(state.py, method !== 'GET', () => {
-      // Another tab may have cleared the workspace since this one last opened it.
-      if (!state.py.FS.analyzePath(file).exists) state.workspace = null;
-      state.workspace ??= state.engine.Workspace(file);
-      return state.workspace.request(method, target, body ?? null);
-    });
+    return withWorkspace(state.py, method !== 'GET', () => openWorkspace(state).request(method, target, body ?? null));
+  },
+  // Backups and team packages: the page turns the result into a file the visitor saves.
+  async exportWorkspace(state) {
+    return withWorkspace(state.py, false, () => openWorkspace(state).export_workspace());
+  },
+  async checkWorkspace({ engine }, { text }) {
+    return engine.check_workspace(text);
+  },
+  async importWorkspace(state, { text }) {
+    return withWorkspace(state.py, true, () => openWorkspace(state).import_workspace(text));
+  },
+  async exportGroupPackage(state, { id }) {
+    return withWorkspace(state.py, false, () => openWorkspace(state).export_group_package(id));
+  },
+  async previewGroupPackage(state, { text }) {
+    return withWorkspace(state.py, false, () => openWorkspace(state).preview_group_package(text));
+  },
+  async importGroupPackage(state, { text }) {
+    return withWorkspace(state.py, true, () => openWorkspace(state).import_group_package(text));
   },
   async reset(state) {
     return withWorkspace(state.py, true, () => {

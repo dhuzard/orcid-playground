@@ -25,6 +25,16 @@ def test_network_page_runs_the_pilot_on_the_browser_engine(tmp_path):
     page = (tmp_path / "site" / "network" / "index.html").read_text(encoding="utf-8")
     assert page.index('src="/network-bridge.js"') < page.index('src="/network/app.js"')
     assert "LOCAL PILOT" not in page and 'id="reset-workspace"' in page
+    assert 'id="export-workspace"' in page and 'id="import-workspace-file"' in page
+
+
+def test_team_package_crypto_is_published_and_cached_offline(tmp_path):
+    files = build_site.build(tmp_path / "site", client_id="")
+    assert "teampack.js" in files
+    assert "'/teampack.js'" in (tmp_path / "site" / "sw.js").read_text(encoding="utf-8")
+    assert "from '/teampack.js'" in (tmp_path / "site" / "group.js").read_text(encoding="utf-8")
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "web/playground/teampack.test.mjs" in ci
 
 
 def test_package_archive_is_reproducible_source_only(tmp_path):
