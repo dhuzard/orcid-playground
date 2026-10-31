@@ -20,7 +20,7 @@ from typing import Callable
 ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_SUFFIXES = {".json", ".jsonld", ".md", ".svg", ".txt"}
 PLAYGROUND = ("index.html", "playground.css", "studio.js", "auth.js", "engine.js", "engine-client.js", "network-bridge.js",
-              "group.js", "group-link.js", "cloud.js", "team.js", "digest.js", "teampack.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png")
+              "group.js", "group-link.js", "cloud.js", "team.js", "sync.js", "digest.js", "teampack.js", "manifest.webmanifest", "icon.svg", "icon-192.png", "icon-512.png")
 # Fixed timestamp so the same source always produces the same archive.
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)
 
@@ -78,6 +78,13 @@ NETWORK_PAGE = [
      '<button id="import-workspace" class="button quiet small" type="button">Restore from file</button>'
      '<input id="import-workspace-file" type="file" accept=".json,application/json" hidden><br>'
      '<button id="reset-workspace" class="button quiet small" type="button">Clear this workspace</button>'
+     '<div id="sync" class="sync" hidden><b>Your ORCID account</b><br>'
+     '<button id="sync-save" class="button quiet small" type="button">Save to my account</button><br>'
+     '<button id="sync-load" class="button quiet small" type="button">Load from my account</button><br>'
+     '<label><input id="sync-auto" type="checkbox"> Save automatically after changes</label><br>'
+     '<button id="sync-delete" class="button quiet small" type="button">Delete my saved copy</button>'
+     '<p id="sync-status" class="sync-status"></p></div>'
+     '<br><a href="/team/">Private team workspaces →</a>'
      '<br><a href="/group/?packages=1">Encrypted team packages →</a>'
      '<br><a href="/">← Back to the Studio</a>'),
     ("01 / LOCAL", "01 / BROWSER"),

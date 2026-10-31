@@ -36,7 +36,7 @@ async function guarded(label, task) {
   say(label, { busy: true });
   try {
     await task();
-    say('');
+    if ($('#status .bar')) say('');
   } catch (error) {
     say(error.message, { error: true });
   }
@@ -176,8 +176,9 @@ async function renderTeam(me, id) {
     if (!ORCID_PATTERN.test(orcid)) return say('Enter an ORCID iD like 0000-0002-1825-0097.', { error: true });
     guarded('Inviting…', async () => {
       await cloud.commit([{ set: `teams/${id}/members/${orcid}`, mustNotExist: true, data: { orcid, teamName: team.name, status: 'invited', invitedBy: me.orcid, invitedAt: new Date(), disclosure: null } }]);
+      await route();
+      // After the refresh, so the instruction stays on screen.
       say(`Invited. Ask them to sign in at ${location.origin}/team/ with their ORCID iD to accept.`);
-      route();
     });
   } }, inviteInput, el('button', { type: 'submit', class: 'button accent' }, 'Invite'));
   const membersSection = el('section', { class: 'result' }, el('h2', {}, `Members (${active.length})`),

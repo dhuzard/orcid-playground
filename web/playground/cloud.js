@@ -16,6 +16,8 @@ async function cloudConfig() {
   return settings;
 }
 
+const endpoint = (c, name, fallback) => (c?.endpoints?.[name] || fallback).replace(/\/$/, '');
+
 export async function available() {
   const c = await cloudConfig();
   return Boolean(c?.apiKey && c?.projectId && c?.exchangeUrl);
@@ -39,7 +41,7 @@ export async function exchange(orcidIdToken) {
   const c = await cloudConfig();
   if (!c || !orcidIdToken) return null;
   const minted = await json(await fetch(c.exchangeUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id_token: orcidIdToken }) }));
-  const signed = await json(await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=${encodeURIComponent(c.apiKey)}`,
+  const signed = await json(await fetch(`${endpoint(c, 'identitytoolkit', 'https://identitytoolkit.googleapis.com')}/v1/accounts:signInWithCustomToken?key=${encodeURIComponent(c.apiKey)}`,
     { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: minted.custom_token, returnSecureToken: true }) }));
   write({ orcid: minted.orcid, name: minted.name, idToken: signed.idToken, refreshToken: signed.refreshToken, expiresAt: Date.now() + Number(signed.expiresIn) * 1000 });
   return session();
@@ -50,7 +52,7 @@ async function idToken() {
   if (!s) throw new Error('Sign in with ORCID to open team workspaces.');
   if (Date.now() < s.expiresAt - 60000) return s.idToken;
   const c = await cloudConfig();
-  const fresh = await json(await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(c.apiKey)}`,
+  const fresh = await json(await fetch(`${endpoint(c, 'securetoken', 'https://securetoken.googleapis.com')}/v1/token?key=${encodeURIComponent(c.apiKey)}`,
     { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: s.refreshToken }) }));
   write({ ...s, idToken: fresh.id_token, refreshToken: fresh.refresh_token, expiresAt: Date.now() + Number(fresh.expires_in) * 1000 });
   return fresh.id_token;
@@ -59,7 +61,7 @@ async function idToken() {
 // ---- Firestore REST -------------------------------------------------------
 
 const root = async () => `projects/${(await cloudConfig()).projectId}/databases/(default)/documents`;
-const api = async path => `https://firestore.googleapis.com/v1/${path}`;
+const api = async path => `${endpoint(await cloudConfig(), 'firestore', 'https://firestore.googleapis.com')}/v1/${path}`;
 
 export function encode(value) {
   if (value === null || value === undefined) return { nullValue: null };
