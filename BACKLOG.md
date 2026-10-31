@@ -704,6 +704,12 @@ Phase 3 of issue #15.
 Split from INF-10. The OpenID Connect sign-in code is live but hidden because
 `config.json` carries no client id (issue #14).
 
+Readiness (not live verification): the authorize request now uses
+`response_type=id_token token`, the only implicit response type both documented
+by ORCID and listed in its discovery document; `web/playground/auth.test.mjs`
+covers token verification offline; `docs/gcp-hosting.md` has the registration
+steps and the live test checklist.
+
 **Acceptance criteria**
 - [ ] ORCID Public API client registered with redirect URI `https://orcid-playground-889.web.app/`.
 - [ ] `ORCID_CLIENT_ID` repository variable set and the site redeployed to live.
