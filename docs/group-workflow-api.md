@@ -72,3 +72,14 @@ selected project collection from suggested member works. Requests have title,
 description, owner, due date and resolve/reopen. Team pack controls choose scope,
 members and dates, with project scope the explicit default in the new form.
 Preserve existing People + group picker; use atomic append endpoint for it.
+
+## Contacts (private, per person)
+
+State gains `contacts: {person_id: {tags, met_on, notes[], actions[]}}`. All POSTs return full state.
+
+- `POST /api/contacts/tags` `{person_ids, add?, remove?, met_on?}`: tags up to 60 chars, 20 per person, case-insensitive; `met_on` is set only if unset.
+- `POST /api/contacts/notes` `{person_id, text}` (up to 2000).
+- `POST /api/contacts/actions` `{person_id, title, due_date?}` (up to 200); `/actions/update` `{person_id, action_id, status: open|done}`.
+- `POST /api/contacts/delete` `{person_id, kind: note|action, entry_id}`.
+
+Contacts are never in team packs or group packages; the workspace backup includes them.

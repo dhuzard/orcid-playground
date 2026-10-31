@@ -1,4 +1,4 @@
-const emptyState = () => ({ people: [], works: [], events: [], groups: [] });
+const emptyState = () => ({ people: [], works: [], events: [], groups: [], contacts: {} });
 let state = emptyState();
 let currentView = 'feed';
 let selectedPerson = null;
@@ -11,6 +11,8 @@ let groupTab = 'roster';
 let bulkRunning = false;
 let activeBulkGroup = null;
 let pendingCreateGroup = false;
+let activeTag = '';
+const contactDrafts = { meeting: { tag: '', date: '', text: '', bulk: null }, notes: {}, actions: {}, tagInput: {} };
 const groupDrafts = new Map();
 
 export function parseOrcidList(text) {
@@ -38,7 +40,7 @@ export function groupRoute(hash) {
   const [view, encodedId] = hash.replace(/^#/, '').split('/');
   let id = null;
   try { id = view === 'groups' && encodedId ? decodeURIComponent(encodedId) : null; } catch { /* Invalid URL stays at the groups list. */ }
-  return { view: ['feed', 'people', 'groups', 'saved'].includes(view) ? view : 'feed', id };
+  return { view: ['feed', 'people', 'contacts', 'groups', 'saved'].includes(view) ? view : 'feed', id };
 }
 
 function draftsFor(group) {
@@ -513,6 +515,143 @@ function renderGroups(view) {
   })));
 }
 
+// ---- Contacts: private tags, notes and follow-ups for people you meet ----
+
+const emptyContact = { tags: [], met_on: '', notes: [], actions: [] };
+const contactOf = id => state.contacts?.[id] || emptyContact;
+export function allTags(contacts) {
+  const counts = new Map();
+  for (const contact of Object.values(contacts || {})) for (const t of contact.tags) counts.set(t, (counts.get(t) || 0) + 1);
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+export function openActions(contacts, ids) {
+  const wanted = new Set(ids);
+  const list = [];
+  for (const [personId, contact] of Object.entries(contacts || {})) {
+    if (!wanted.has(personId)) continue;
+    for (const action of contact.actions) if (action.status === 'open') list.push({ personId, action });
+  }
+  // Dated follow-ups first (soonest first), undated ones last.
+  return list.sort((a, b) => (a.action.due_date || '9999').localeCompare(b.action.due_date || '9999') || a.action.created_at.localeCompare(b.action.created_at));
+}
+const today = () => new Date().toISOString().slice(0, 10);
+
+async function runMeeting() {
+  const draft = contactDrafts.meeting;
+  const tagName = draft.tag.trim();
+  if (busy || bulkRunning || !draft.bulk || draft.bulk.overLimit) return;
+  const pending = draft.bulk.entries.filter(e => e.valid && ['ready', 'error', 'cancelled'].includes(e.status));
+  if (!tagName) return notice('Name the conference or context first, so these people can be found together later.', true);
+  draft.cancel = false;
+  bulkRunning = true;
+  try {
+    for (const entry of pending) {
+      if (draft.cancel) { entry.status = 'cancelled'; entry.message = 'Not processed · ready to resume'; continue; }
+      entry.status = 'loading'; entry.message = 'Reading public record…'; render();
+      try {
+        let person = state.people.find(p => p.orcid === entry.id && !p.demo);
+        const reused = Boolean(person);
+        if (!person) {
+          await postState('/api/import', { orcid: entry.id });
+          person = state.people.find(p => p.orcid === entry.id && !p.demo);
+          if (!person) throw new Error('Import returned no researcher. Nobody was tagged.');
+        }
+        await postState('/api/contacts/tags', { person_ids: [person.id], add: [tagName], met_on: draft.date });
+        entry.status = 'done';
+        entry.message = `${person.name} · tagged “${tagName}”${reused ? ' · existing import reused' : ''}`;
+      } catch (error) { entry.status = 'error'; entry.message = error.message || 'Could not reach the server. Retry this entry.'; }
+      render();
+    }
+  } finally {
+    bulkRunning = false;
+    render();
+    notice(draft.cancel ? 'Stopped after the current record. People already tagged are saved.' : 'Finished. Review the per-record results below.');
+  }
+}
+
+function meetingForm() {
+  const draft = contactDrafts.meeting;
+  draft.date ||= today();
+  const tags = allTags(state.contacts);
+  const list = el('datalist', { id: 'known-tags' }, tags.map(([t]) => el('option', { value: t })));
+  const tagInput = el('input', { class: 'input', list: 'known-tags', maxlength: '60', placeholder: 'e.g. FENS 2026', value: draft.tag, disabled: bulkRunning, oninput: e => { draft.tag = e.target.value; } });
+  const date = el('input', { class: 'input', type: 'date', value: draft.date, disabled: bulkRunning, oninput: e => { draft.date = e.target.value; } });
+  const text = el('textarea', { class: 'input', rows: '3', 'aria-label': 'ORCID list', placeholder: 'Paste ORCID iDs or profile links, one per line', disabled: bulkRunning, oninput: e => { draft.text = e.target.value; draft.bulk = null; results.replaceChildren(); } }, draft.text);
+  const results = el('div', { class: 'bulk-results', 'aria-live': 'polite' });
+  const refresh = () => {
+    if (!draft.bulk) return;
+    const entries = draft.bulk.entries;
+    results.replaceChildren(
+      el('p', { class: 'helper' }, `${entries.filter(e => e.valid).length} valid · ${entries.filter(e => !e.valid).length} invalid · duplicates removed`),
+      draft.bulk.overLimit && el('p', { class: 'inline-error', role: 'alert' }, 'Use at most 50 unique entries per batch. No imports have started.'),
+      el('ul', { class: 'bulk-list' }, entries.map(e => el('li', { class: `bulk-entry ${e.status}` }, el('strong', {}, e.id), el('span', {}, e.status === 'ready' && state.people.some(p => p.orcid === e.id && !p.demo) ? 'Existing import will be reused' : e.message)))),
+      el('div', { class: 'card-actions' },
+        button('Import & tag', runMeeting, 'accent', { disabled: busy || bulkRunning || draft.bulk.overLimit || !entries.some(e => ['ready', 'error', 'cancelled'].includes(e.status)) }),
+        bulkRunning && button(draft.cancel ? 'Stopping…' : 'Stop after current record', () => { draft.cancel = true; refresh(); }, 'quiet', { disabled: draft.cancel })));
+  };
+  refresh();
+  return el('section', { class: 'editor' }, el('h3', {}, 'I just met people'),
+    el('p', { class: 'helper' }, 'Tag everyone from one conference or context. Tags, notes and follow-ups stay in this browser; they are never part of a team pack and the people do not see them.'),
+    list, el('label', { class: 'field' }, 'Conference or context', tagInput), el('label', { class: 'field' }, 'Date met', date),
+    el('label', { class: 'field' }, 'ORCID iDs', text),
+    button('Preview list', () => { draft.bulk = parseOrcidList(text.value); refresh(); }, 'quiet'), results);
+}
+
+function contactCard(person) {
+  const contact = contactOf(person.id);
+  const note = contactDrafts.notes;
+  const act = contactDrafts.actions;
+  const tagDraft = contactDrafts.tagInput;
+  const act_ = act[person.id] ||= { title: '', due: '' };
+  const open = contact.actions.filter(a => a.status === 'open');
+  const done = contact.actions.filter(a => a.status === 'done');
+  const noteBox = el('textarea', { class: 'input', rows: '2', maxlength: '2000', 'aria-label': `Note about ${person.name}`, placeholder: 'What did you talk about?', oninput: e => { note[person.id] = e.target.value; } }, note[person.id] || '');
+  const tagBox = el('input', { class: 'input', list: 'known-tags', maxlength: '60', 'aria-label': `Add a tag to ${person.name}`, placeholder: 'Add tag', value: tagDraft[person.id] || '', oninput: e => { tagDraft[person.id] = e.target.value; } });
+  const title = el('input', { class: 'input', maxlength: '200', 'aria-label': `Follow-up with ${person.name}`, placeholder: 'Follow-up, e.g. send the protocol', value: act_.title, oninput: e => { act_.title = e.target.value; } });
+  const due = el('input', { class: 'input', type: 'date', 'aria-label': 'Due date', value: act_.due, oninput: e => { act_.due = e.target.value; } });
+  const actionRow = a => el('li', { class: `bulk-entry ${a.status === 'done' ? 'done' : ''}` },
+    el('span', {}, `${a.status === 'done' ? '✓ ' : ''}${a.title}`, a.due_date && el('em', { class: a.status === 'open' && a.due_date < today() ? 'inline-error' : '' }, ` · due ${a.due_date}${a.status === 'open' && a.due_date < today() ? ' (overdue)' : ''}`)),
+    el('span', { class: 'card-actions' },
+      button(a.status === 'done' ? 'Reopen' : 'Done', () => update('/api/contacts/actions/update', { person_id: person.id, action_id: a.id, status: a.status === 'done' ? 'open' : 'done' }), 'quiet small', { 'aria-label': `${a.status === 'done' ? 'Reopen' : 'Complete'}: ${a.title}` }),
+      button('Delete', () => update('/api/contacts/delete', { person_id: person.id, kind: 'action', entry_id: a.id }), 'quiet small', { 'aria-label': `Delete follow-up: ${a.title}` })));
+  return el('article', { class: 'group-card' },
+    el('div', { class: 'card-top' }, el('div', { class: 'people-line' }, avatar(person), el('strong', {}, person.name)), person.demo && tag('Demo', true)),
+    el('p', { class: 'helper' }, [person.affiliation, contact.met_on && `met ${dateLabel(contact.met_on)}`].filter(Boolean).join(' · ') || 'Imported public record'),
+    el('div', { class: 'chips' }, contact.tags.map(t => el('span', { class: 'chip' }, t, ' ', button('×', () => update('/api/contacts/tags', { person_ids: [person.id], remove: [t] }), 'quiet small', { 'aria-label': `Remove tag ${t} from ${person.name}` })))),
+    el('form', { class: 'card-actions', onsubmit: async e => { e.preventDefault(); const v = (tagDraft[person.id] || '').trim(); if (!v) return; if (await mutate('/api/contacts/tags', { person_ids: [person.id], add: [v] }, 'Tag added.')) { tagDraft[person.id] = ''; render(); } } }, tagBox, el('button', { type: 'submit', class: 'button quiet small', disabled: busy }, 'Add tag')),
+    el('h4', {}, 'Follow-ups'),
+    open.length || done.length ? el('ul', { class: 'bulk-list' }, [...open, ...done].map(actionRow)) : el('p', { class: 'helper' }, 'Nothing planned yet.'),
+    el('form', { class: 'form-fields', onsubmit: async e => { e.preventDefault(); if (!act_.title.trim()) return; if (await mutate('/api/contacts/actions', { person_id: person.id, title: act_.title.trim(), due_date: act_.due }, 'Follow-up added.')) { contactDrafts.actions[person.id] = { title: '', due: '' }; render(); } } }, title, due, el('button', { type: 'submit', class: 'button quiet small', disabled: busy }, 'Add follow-up')),
+    el('h4', {}, 'Notes'),
+    contact.notes.length ? el('ul', { class: 'bulk-list' }, [...contact.notes].reverse().map(n => el('li', { class: 'bulk-entry' }, el('span', {}, n.text, el('em', {}, ` · ${dateLabel(n.created_at.slice(0, 10))}`)), button('Delete', () => update('/api/contacts/delete', { person_id: person.id, kind: 'note', entry_id: n.id }), 'quiet small', { 'aria-label': 'Delete this note' })))) : el('p', { class: 'helper' }, 'No notes yet.'),
+    el('form', { class: 'form-fields', onsubmit: async e => { e.preventDefault(); const v = (note[person.id] || '').trim(); if (!v) return; if (await mutate('/api/contacts/notes', { person_id: person.id, text: v }, 'Note saved.')) { note[person.id] = ''; render(); } } }, noteBox, el('button', { type: 'submit', class: 'button quiet small', disabled: busy }, 'Add note')));
+}
+
+function renderContacts(view) {
+  view.append(meetingForm());
+  const tags = allTags(state.contacts);
+  if (activeTag && !tags.some(([t]) => t === activeTag)) activeTag = '';
+  const everyone = state.people.filter(p => !p.demo || state.contacts?.[p.id]);
+  const shown = everyone.filter(p => (!activeTag || contactOf(p.id).tags.includes(activeTag)) && `${p.name} ${p.affiliation}`.toLowerCase().includes(search.toLowerCase()));
+  view.append(el('div', { class: 'toolbar' }, el('span', { class: 'section-kicker' }, 'CONTEXTS'),
+    el('div', { class: 'chips' }, button(`All (${everyone.length})`, () => { activeTag = ''; render(); }, activeTag ? 'quiet small' : 'small', { 'aria-pressed': String(!activeTag) }),
+      tags.map(([t, n]) => button(`${t} (${n})`, () => { activeTag = t; render(); }, activeTag === t ? 'small' : 'quiet small', { 'aria-pressed': String(activeTag === t) })))));
+  if (activeTag) {
+    const ids = shown.map(p => p.id);
+    view.append(el('div', { class: 'card-actions' },
+      button('Turn this context into a group', () => update('/api/groups', { name: activeTag, description: `People met: ${activeTag}`, member_ids: ids }, 'Group created from this context. Add roles and requests in Groups.'), 'quiet small', { disabled: !ids.length }),
+      button('Remove this tag from everyone shown', () => { if (confirm(`Remove “${activeTag}” from ${ids.length} people? Their notes and follow-ups stay.`)) { const t = activeTag; update('/api/contacts/tags', { person_ids: ids, remove: [t] }, 'Tag removed.'); } }, 'quiet small', { disabled: !ids.length })));
+  }
+  const todo = openActions(state.contacts, shown.map(p => p.id));
+  if (todo.length) {
+    view.append(el('section', { class: 'editor' }, el('h3', {}, `Open follow-ups${activeTag ? ` · ${activeTag}` : ''} (${todo.length})`),
+      el('ul', { class: 'bulk-list' }, todo.map(({ personId, action }) => el('li', { class: 'bulk-entry' },
+        el('span', {}, el('strong', {}, state.people.find(p => p.id === personId)?.name || personId), ` · ${action.title}`, action.due_date && el('em', { class: action.due_date < today() ? 'inline-error' : '' }, ` · due ${action.due_date}${action.due_date < today() ? ' (overdue)' : ''}`)),
+        button('Done', () => update('/api/contacts/actions/update', { person_id: personId, action_id: action.id, status: 'done' }), 'quiet small', { 'aria-label': `Complete: ${action.title}` }))))));
+  }
+  view.append(shown.length ? el('div', { class: 'grid' }, shown.map(contactCard)) : empty('No contacts here yet.', everyone.length ? 'Try another context or search.' : 'Paste the ORCID iDs of people you meet above, with the name of the conference. You can then add notes and follow-ups for each of them.'));
+}
+
 function renderSaved(view) {
   const list = el('div', { class: 'stack' });
   const results = () => {
@@ -526,6 +665,7 @@ function renderSaved(view) {
 const headings = {
   feed: ['YOUR RESEARCH CIRCLE', 'The latest, together.', 'A quieter way to keep up with the people behind the research.'],
   people: ['PEOPLE, BEFORE METRICS', 'Follow your curiosity.', 'Connect public research records to the people whose work you care about.'],
+  contacts: ['PEOPLE YOU MEET', 'Keep every conversation going.', 'Tag people by conference or context, note what you discussed, and track what you promised to do next. Private to this browser.'],
   groups: ['RESEARCH IS A TEAM SPORT', 'A shared place to work.', 'Bring your collaborators and their research outputs into one useful view.'],
   saved: ['GOOD WORK, KEPT CLOSE', 'Your next good read.', 'A personal collection of papers, datasets, and ideas worth returning to.']
 };
@@ -536,7 +676,7 @@ function render() {
   const followed = state.people.filter(p => p.following).length;
   nav.replaceChildren(...[
     ['feed', '◫', 'Feed', feedEntries(state).length], ['people', '◉', 'People', state.people.length],
-    ['groups', '⌘', 'Groups', state.groups.length], ['saved', '▱', 'Saved', state.works.filter(w => w.saved).length]
+    ['contacts', '☺', 'Contacts', Object.keys(state.contacts || {}).length], ['groups', '⌘', 'Groups', state.groups.length], ['saved', '▱', 'Saved', state.works.filter(w => w.saved).length]
   ].map(([id, icon, label, count]) => el('a', { class: `nav-link${currentView === id ? ' active' : ''}`, href: `#${id}`, 'aria-current': currentView === id ? 'page' : null }, el('span', { class: 'nav-icon', 'aria-hidden': 'true' }, icon), label, el('span', { class: 'nav-count' }, count))));
   const heading = headings[currentView];
   ['eyebrow', 'title', 'subtitle'].forEach((id, index) => { document.getElementById(id).textContent = heading[index]; });
@@ -545,7 +685,7 @@ function render() {
   document.querySelector('#summary').replaceChildren(...[[followed, 'researchers followed'], [state.works.length, 'research outputs'], [state.groups.length, 'working groups']].map(([count, label]) => el('div', { class: 'stat' }, el('strong', {}, count), el('span', {}, label))));
   const view = document.querySelector('#view');
   view.replaceChildren();
-  ({ feed: renderFeed, people: renderPeople, groups: renderGroups, saved: renderSaved })[currentView](view);
+  ({ feed: renderFeed, people: renderPeople, contacts: renderContacts, groups: renderGroups, saved: renderSaved })[currentView](view);
   if (bulkRunning && activeBulkGroup) {
     const draft = groupDrafts.get(activeBulkGroup);
     const node = document.querySelector('#notice');

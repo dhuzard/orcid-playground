@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { safeUrl, dateLabel, feedEntries, groupWorks, parseOrcidList, groupRoute } from './app.js';
+import { safeUrl, dateLabel, feedEntries, groupWorks, parseOrcidList, groupRoute, allTags, openActions } from './app.js';
 
 test('external links reject executable and relative URLs', () => {
   for (const value of ['javascript:alert(1)', 'data:text/html,hello', '/api/state', '', null]) assert.equal(safeUrl(value), null);
@@ -64,4 +64,20 @@ test('group routes restore a selected group and tolerate malformed hashes', () =
   assert.deepEqual(groupRoute('#groups/%invalid'), { view: 'groups', id: null });
   assert.deepEqual(groupRoute('#people'), { view: 'people', id: null });
   assert.deepEqual(groupRoute('#nonsense'), { view: 'feed', id: null });
+});
+
+test('contexts are counted by tag, most used first', () => {
+  const contacts = { a: { tags: ['FENS 2026', 'Neuro'] }, b: { tags: ['FENS 2026'] }, c: { tags: [] } };
+  assert.deepEqual(allTags(contacts), [['FENS 2026', 2], ['Neuro', 1]]);
+  assert.deepEqual(allTags(undefined), []);
+});
+
+test('open follow-ups are ordered by due date, undated last, and respect the filter', () => {
+  const act = (id, status, due, created = '2026-01-01') => ({ id, status, due_date: due, created_at: created, title: id });
+  const contacts = {
+    a: { actions: [act('late', 'open', '2026-09-01'), act('finished', 'done', '2026-01-01'), act('none', 'open', '')] },
+    b: { actions: [act('soon', 'open', '2026-08-01')] },
+    c: { actions: [act('hidden', 'open', '2026-01-01')] }
+  };
+  assert.deepEqual(openActions(contacts, ['a', 'b']).map(x => x.action.id), ['soon', 'late', 'none']);
 });

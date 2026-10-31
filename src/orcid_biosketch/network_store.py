@@ -149,6 +149,7 @@ class NetworkStore:
             data = json.loads(connection.execute("SELECT data FROM workspace WHERE id=1").fetchone()[0])
             if data.get("version") != 1:
                 raise ValueError("Unsupported network workspace version")
+            data.setdefault("contacts", {})
             for group in data["groups"].values():
                 self._group_defaults(group)
             yield data
@@ -191,6 +192,8 @@ class NetworkStore:
             if event["people_ids"]:
                 events[key] = event
         data["events"] = events
+        data["contacts"] = {key: value for key, value in data.get("contacts", {}).items()
+                            if key in data["profiles"]}
         for group in data["groups"].values():
             cls._group_defaults(group)
             members = set(group["member_ids"])
@@ -249,7 +252,9 @@ class NetworkStore:
         public_works = [{k: v for k, v in work.items() if k != "_source"} for work in works.values()]
         return {"people": people, "works": sorted(public_works, key=lambda w: w["date"], reverse=True),
                 "events": sorted(events, key=lambda e: e["observed_at"], reverse=True),
-                "groups": list(data["groups"].values())}
+                "groups": list(data["groups"].values()),
+                "contacts": {key: cls._contact(value) for key, value in data.get("contacts", {}).items()
+                             if key in data["profiles"]}}
 
     @staticmethod
     def _validate_bio(bio: Any) -> tuple[str, dict]:
@@ -412,6 +417,97 @@ class NetworkStore:
             if not isinstance(request_id, str) or request is None:
                 raise ValueError("Unknown group request")
             request["status"] = status
+
+    # ---- Contacts: private, local notes about people you meet -----------------
+    # Tags, notes and follow-ups are the researcher's own records. They are never
+    # part of a team pack or a group package; only a workspace backup carries them.
+
+    @staticmethod
+    def _contact(value: dict | None = None) -> dict:
+        value = value or {}
+        return {"tags": list(value.get("tags", [])), "met_on": value.get("met_on", ""),
+                "notes": list(value.get("notes", [])), "actions": list(value.get("actions", []))}
+
+    @staticmethod
+    def _clean_tags(tags: Any) -> list:
+        if not isinstance(tags, list) or any(not isinstance(tag, str) for tag in tags):
+            raise ValueError("Tags must be a list of text values")
+        clean: dict[str, str] = {}
+        for tag in tags:
+            tag = " ".join(tag.split())
+            if not tag:
+                continue
+            if len(tag) > 60:
+                raise ValueError("A tag must contain at most 60 characters")
+            clean.setdefault(tag.casefold(), tag)
+        if len(clean) > 20:
+            raise ValueError("A person can have at most 20 tags")
+        return list(clean.values())
+
+    @staticmethod
+    def _known_people(data: dict, person_ids: Any) -> list:
+        if (not isinstance(person_ids, list) or not person_ids
+                or any(not isinstance(x, str) or x not in data["profiles"] for x in person_ids)):
+            raise ValueError("Contacts must be imported researchers")
+        return list(dict.fromkeys(person_ids))
+
+    def tag_contacts(self, person_ids: list, add: list | None = None, remove: list | None = None,
+                     met_on: str = "") -> None:
+        """Add and/or remove tags for several people at once (e.g. after a meeting)."""
+        add, remove = self._clean_tags(add or []), self._clean_tags(remove or [])
+        _date_bound(met_on, "Date met")
+        with self._transaction(True) as data:
+            for person_id in self._known_people(data, person_ids):
+                contact = data["contacts"][person_id] = self._contact(data["contacts"].get(person_id))
+                dropped = {tag.casefold() for tag in remove}
+                tags = self._clean_tags([t for t in contact["tags"] if t.casefold() not in dropped] + add)
+                contact["tags"] = tags
+                if met_on and not contact["met_on"]:
+                    contact["met_on"] = met_on
+
+    def add_contact_note(self, person_id: str, text: str) -> None:
+        text = _bounded_text(text, "Note", 2000, required=True)
+        with self._transaction(True) as data:
+            self._known_people(data, [person_id])
+            contact = data["contacts"][person_id] = self._contact(data["contacts"].get(person_id))
+            if len(contact["notes"]) >= 500:
+                raise ValueError("A contact can hold at most 500 notes")
+            contact["notes"].append({"id": str(uuid.uuid4()), "text": text, "created_at": _now()})
+
+    def add_contact_action(self, person_id: str, title: str, due_date: str = "") -> None:
+        title = _bounded_text(title, "Follow-up", 200, required=True)
+        _date_bound(due_date, "Due date")
+        with self._transaction(True) as data:
+            self._known_people(data, [person_id])
+            contact = data["contacts"][person_id] = self._contact(data["contacts"].get(person_id))
+            if len(contact["actions"]) >= 200:
+                raise ValueError("A contact can hold at most 200 follow-ups")
+            contact["actions"].append({"id": str(uuid.uuid4()), "title": title, "due_date": due_date,
+                                       "status": "open", "created_at": _now(), "done_at": None})
+
+    def set_contact_action_status(self, person_id: str, action_id: str, status: str) -> None:
+        if not isinstance(status, str) or status not in ("open", "done"):
+            raise ValueError("Follow-up status must be open or done")
+        with self._transaction(True) as data:
+            self._known_people(data, [person_id])
+            contact = data["contacts"].get(person_id) or {}
+            action = next((a for a in contact.get("actions", []) if a["id"] == action_id), None)
+            if not isinstance(action_id, str) or action is None:
+                raise ValueError("Unknown follow-up")
+            action["status"] = status
+            action["done_at"] = _now() if status == "done" else None
+
+    def delete_contact_entry(self, person_id: str, kind: str, entry_id: str) -> None:
+        if kind not in ("note", "action"):
+            raise ValueError("Only a note or a follow-up can be deleted")
+        key = "notes" if kind == "note" else "actions"
+        with self._transaction(True) as data:
+            self._known_people(data, [person_id])
+            contact = data["contacts"].get(person_id) or {}
+            kept = [e for e in contact.get(key, []) if e["id"] != entry_id]
+            if len(kept) == len(contact.get(key, [])):
+                raise ValueError(f"Unknown {kind}")
+            contact[key] = kept
 
     def export_group(self, id: str, *, scope: str = "members", date_from: str = "",
                      date_to: str = "", member_ids: list | None = None) -> bytes:
@@ -635,8 +731,53 @@ class NetworkStore:
                 "requests": clean_requests}
 
     @classmethod
+    def _validate_contacts(cls, contacts: Any, profiles: dict) -> dict:
+        if not isinstance(contacts, dict):
+            raise ValueError("Workspace contacts must be an object")
+        result = {}
+        for person_id, contact in contacts.items():
+            if person_id not in profiles:
+                raise ValueError("Contacts must be imported researchers")
+            _fields(contact, "A contact", (), ("tags", "met_on", "notes", "actions"))
+            met_on = contact.get("met_on", "")
+            _date_bound(met_on, "Date met")
+            notes, actions = contact.get("notes", []), contact.get("actions", [])
+            if not isinstance(notes, list) or not isinstance(actions, list):
+                raise ValueError("Contact notes and follow-ups must be lists")
+            clean_notes, clean_actions = [], []
+            for note in notes:
+                _fields(note, "A contact note", ("id", "text"), ("created_at",))
+                if not isinstance(note["id"], str) or not _GROUP_ID.fullmatch(note["id"]):
+                    raise ValueError("Note ids must be short identifiers")
+                created = note.get("created_at", "")
+                if not isinstance(created, str):
+                    raise ValueError("Note created_at must be text")
+                clean_notes.append({"id": note["id"], "text": _bounded_text(note["text"], "Note", 2000, required=True),
+                                    "created_at": created})
+            for action in actions:
+                _fields(action, "A follow-up", ("id", "title", "status"), ("due_date", "created_at", "done_at"))
+                if not isinstance(action["id"], str) or not _GROUP_ID.fullmatch(action["id"]):
+                    raise ValueError("Follow-up ids must be short identifiers")
+                if action["status"] not in ("open", "done"):
+                    raise ValueError("Follow-up status must be open or done")
+                due = action.get("due_date", "")
+                _date_bound(due, "Due date")
+                created = action.get("created_at", "")
+                done_at = _optional_text(action.get("done_at"), "Follow-up done_at")
+                if not isinstance(created, str):
+                    raise ValueError("Follow-up created_at must be text")
+                clean_actions.append({"id": action["id"], "title": _bounded_text(action["title"], "Follow-up", 200, required=True),
+                                      "due_date": due, "status": action["status"], "created_at": created, "done_at": done_at})
+            if (len({n["id"] for n in clean_notes}) != len(clean_notes)
+                    or len({a["id"] for a in clean_actions}) != len(clean_actions)):
+                raise ValueError("Contact entries have repeated ids")
+            result[person_id] = {"tags": cls._clean_tags(contact.get("tags", [])), "met_on": met_on,
+                                 "notes": clean_notes, "actions": clean_actions}
+        return result
+
+    @classmethod
     def _validate_workspace_data(cls, data: Any) -> dict:
-        _fields(data, "Workspace data", ("version", "profiles", "events", "saved", "groups"))
+        _fields(data, "Workspace data", ("version", "profiles", "events", "saved", "groups"), ("contacts",))
         _version_one(data, "workspace data")
         if not isinstance(data["profiles"], dict):
             raise ValueError("Workspace profiles must be an object")
@@ -659,7 +800,8 @@ class NetworkStore:
                 raise ValueError("Group ids must be short identifiers matching their key")
             groups[group_id] = {"id": group_id, **cls._validate_group_record(group, "A group", profiles)}
         result = {"version": 1, "profiles": profiles, "events": events,
-                  "saved": _strings(data["saved"], "Saved outputs"), "groups": groups}
+                  "saved": _strings(data["saved"], "Saved outputs"), "groups": groups,
+                  "contacts": cls._validate_contacts(data.get("contacts", {}), profiles)}
         cls._prune(result)
         cls._state(result)  # The restored workspace must be readable.
         return result
