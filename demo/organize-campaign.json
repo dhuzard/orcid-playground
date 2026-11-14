@@ -1,0 +1,351 @@
+{
+  "_comment": "Connect & Organize demo video composition (#59). DRAFT: not approved for publication (blocked by #44 and communications/release-checklist.md Release B). Read by demo/organize-campaign.mjs and tests/test_organize_campaign.py. Times are seconds. Every 'network' segment of a variant comes from ONE continuous browser take: each segment starts at its planned time, its actions run in the real UI and wait for the app's own confirmation, and the render fails if an action does not finish inside its segment.",
+  "status": "DRAFT — NOT APPROVED FOR PUBLICATION",
+  "blocked_by": [
+    "#44",
+    "communications/release-checklist.md Release B"
+  ],
+  "data_source": "The four fictional '(Demo)' researchers of demo/synthetic.mjs (DOIs under Crossref's 10.5555 test prefix), served in place of pub.orcid.org inside the recording browser. Each take uses a fresh, empty browser profile, so no real workspace, contact or note can appear. Every other external request is blocked and listed in the render manifest.",
+  "audio": {
+    "_comment": "Off by default. No narration or music asset is included in the repository; pass --narration=<file> or --music=<file> to mix one in.",
+    "narration": null,
+    "music": null,
+    "music_gain_db": -24
+  },
+  "brand": {
+    "aubergine": "#3a2737",
+    "vinyl": "#21181f",
+    "pink": "#e2b4c0",
+    "rose": "#a05a72",
+    "paper": "#faf6f7"
+  },
+  "formats": {
+    "landscape": {
+      "width": 1280,
+      "height": 720,
+      "kicker_px": 18,
+      "title_px": 44,
+      "body_px": 26
+    },
+    "square": {
+      "width": 1080,
+      "height": 1080,
+      "kicker_px": 26,
+      "title_px": 62,
+      "body_px": 36
+    }
+  },
+  "sample_label": "Fictional (Demo) data · local build",
+  "required_captions": [
+    "Your notes stay in this browser by default",
+    "No invitation or notification sent",
+    "Curated membership/project attribution is not independently verified"
+  ],
+  "demo": {
+    "_comment": "Typed live during the take. People are referenced by index into demoPeople of demo/synthetic.mjs (0 Ada, 1 Sam, 2 Lena, 3 Noor).",
+    "context": "Open Science Meetup (Demo)",
+    "import": [0, 1, 2],
+    "handoff": 3,
+    "handoff_note": "Asked how the group shares metadata.",
+    "note_for": 0,
+    "note": "Wants to share home-cage data. Met at the poster session.",
+    "follow_up": "Send the metadata checklist",
+    "follow_up_due_in_days": 14,
+    "group": "Atlas working group (Demo)",
+    "group_members": [0, 1]
+  },
+  "variants": {
+    "organize-campaign": {
+      "title": "Connect & Organize — LinkedIn cut",
+      "formats": [
+        "landscape",
+        "square"
+      ],
+      "segments": [
+        {
+          "id": "hook",
+          "kind": "network",
+          "duration": 6,
+          "screen": "My Network, Contacts, empty fresh workspace with the 'Connect & Organize, step by step' guide",
+          "kicker": "CONNECT & ORGANIZE",
+          "title": "Remember that scientist you met?",
+          "text": "Fictional (Demo) researchers, recorded in a local build.",
+          "actions": [
+            {
+              "step": "guide"
+            }
+          ]
+        },
+        {
+          "id": "import",
+          "kind": "network",
+          "duration": 10,
+          "screen": "Contacts, 'I just met people': context typed, three fictional iDs pasted, Preview list, Import & tag, per-record results",
+          "kicker": "IMPORT & TAG",
+          "title": "Save scientific contacts.",
+          "text": "Fictional (Demo) ORCID records, read on request and tagged with the meeting.",
+          "actions": [
+            {
+              "step": "importAndTag"
+            }
+          ]
+        },
+        {
+          "id": "note",
+          "kind": "network",
+          "duration": 12,
+          "screen": "Contacts, Ada Rivera (Demo) card: meeting tag shown, private note typed and saved",
+          "kicker": "CONTEXT & PRIVATE NOTE",
+          "title": "Remember the conversation.",
+          "text": "Your notes stay in this browser by default.",
+          "actions": [
+            {
+              "step": "showCard"
+            },
+            {
+              "wait": 3
+            },
+            {
+              "step": "note"
+            }
+          ]
+        },
+        {
+          "id": "follow-up",
+          "kind": "network",
+          "duration": 10,
+          "screen": "Contacts, Ada Rivera (Demo) card: follow-up with a due date added",
+          "kicker": "FOLLOW-UP",
+          "title": "Keep your promises.",
+          "text": "A follow-up with a due date. No invitation or notification sent.",
+          "actions": [
+            {
+              "step": "followUp"
+            }
+          ]
+        },
+        {
+          "id": "group",
+          "kind": "network",
+          "duration": 12,
+          "screen": "Groups: new local group from two contacts, opened, one project output selected",
+          "kicker": "LOCAL GROUP",
+          "title": "Turn contacts into working groups.",
+          "text": "Curated membership/project attribution is not independently verified.",
+          "actions": [
+            {
+              "step": "createGroup"
+            },
+            {
+              "wait": 2
+            },
+            {
+              "step": "selectOutputs",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "id": "export",
+          "kind": "network",
+          "duration": 6,
+          "screen": "Group, Team pack tab: the team pack ZIP is downloaded",
+          "kicker": "TEAM PACK",
+          "title": "Organize the science.",
+          "text": "One team pack. Your contact notes are not in it.",
+          "actions": [
+            {
+              "step": "teamPack"
+            }
+          ]
+        },
+        {
+          "id": "cta",
+          "kind": "card",
+          "duration": 9,
+          "screen": "Closing card: product name, research-network link, independence disclaimer",
+          "kicker": "OPEN SOURCE · NO ACCOUNT NEEDED",
+          "title": "Try Science Record Player.",
+          "text": "science-record-player.web.app/network/"
+        }
+      ]
+    },
+    "organize-walkthrough": {
+      "title": "Connect & Organize — walkthrough",
+      "formats": [
+        "landscape"
+      ],
+      "segments": [
+        {
+          "id": "intro",
+          "kind": "card",
+          "duration": 7,
+          "screen": "Title card: Science Record Player record mark",
+          "kicker": "SCIENCE RECORD PLAYER · MY NETWORK",
+          "title": "Remember that scientist you met?",
+          "text": "From a conversation to a team pack, with fictional (Demo) researchers."
+        },
+        {
+          "id": "guide",
+          "kind": "network",
+          "duration": 14,
+          "screen": "My Network, Contacts, empty fresh workspace: the guide, where the data lives, and the seven steps",
+          "kicker": "FIRST STEPS",
+          "title": "Seven steps, one real workflow.",
+          "text": "Your notes stay in this browser by default. Download a backup file before you rely on them.",
+          "actions": [
+            {
+              "step": "guide"
+            },
+            {
+              "wait": 5
+            },
+            {
+              "step": "guideSteps"
+            }
+          ]
+        },
+        {
+          "id": "import",
+          "kind": "network",
+          "duration": 16,
+          "screen": "Contacts, 'I just met people': context typed, three fictional iDs pasted, Preview list, Import & tag, per-record results",
+          "kicker": "IMPORT & TAG",
+          "title": "Save scientific contacts.",
+          "text": "Paste ORCID iDs and name the meeting. Each public record is read once, on your request, and tagged.",
+          "actions": [
+            {
+              "step": "importAndTag"
+            }
+          ]
+        },
+        {
+          "id": "handoff",
+          "kind": "network",
+          "duration": 18,
+          "screen": "The 'Save as contact' confirmation that Explore opens: context, date met and private note, then Read record & save as contact; the new contact card",
+          "kicker": "SAVE AS CONTACT",
+          "title": "Or save one person at a time.",
+          "text": "Save as contact asks first, reads the public record once, and does not follow or notify the person.",
+          "actions": [
+            {
+              "step": "saveAsContact"
+            }
+          ]
+        },
+        {
+          "id": "note",
+          "kind": "network",
+          "duration": 15,
+          "screen": "Contacts, Ada Rivera (Demo) card: meeting tag shown, private note typed and saved",
+          "kicker": "CONTEXT & PRIVATE NOTE",
+          "title": "Remember the conversation.",
+          "text": "Your notes stay in this browser by default. They are not part of anyone's public record.",
+          "actions": [
+            {
+              "step": "showCard"
+            },
+            {
+              "wait": 2.5
+            },
+            {
+              "step": "note"
+            }
+          ]
+        },
+        {
+          "id": "follow-up",
+          "kind": "network",
+          "duration": 16,
+          "screen": "Contacts, Ada Rivera (Demo) card: follow-up with a due date, then the Open follow-ups list",
+          "kicker": "FOLLOW-UPS",
+          "title": "Keep your promises.",
+          "text": "A follow-up with a due date, listed with everything you owe people. No invitation or notification sent.",
+          "actions": [
+            {
+              "step": "followUp"
+            },
+            {
+              "wait": 2
+            },
+            {
+              "step": "openFollowUps"
+            }
+          ]
+        },
+        {
+          "id": "group",
+          "kind": "network",
+          "duration": 16,
+          "screen": "Groups: new local group from two contacts, created and opened",
+          "kicker": "LOCAL GROUP",
+          "title": "Turn contacts into working groups.",
+          "text": "A group you curate in this browser. Curated membership/project attribution is not independently verified.",
+          "actions": [
+            {
+              "step": "createGroup"
+            },
+            {
+              "wait": 3
+            },
+            {
+              "step": "roster"
+            }
+          ]
+        },
+        {
+          "id": "curate",
+          "kind": "network",
+          "duration": 14,
+          "screen": "Group, Project outputs tab: two member outputs selected for the project",
+          "kicker": "PROJECT OUTPUTS",
+          "title": "Choose what belongs to the project.",
+          "text": "Selecting an output records your decision. It does not change ORCID or confirm authorship.",
+          "actions": [
+            {
+              "step": "selectOutputs",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "id": "export",
+          "kind": "network",
+          "duration": 14,
+          "screen": "Group, Team pack tab: the team pack ZIP is downloaded",
+          "kicker": "TEAM PACK",
+          "title": "Organize the science.",
+          "text": "Roster, bibliography and member biosketches in one file. Contact tags, notes and follow-ups are not included.",
+          "actions": [
+            {
+              "step": "teamPack"
+            }
+          ]
+        },
+        {
+          "id": "done",
+          "kind": "network",
+          "duration": 11,
+          "screen": "Back to the top of the page: the guide again, every step marked done",
+          "kicker": "ALL DONE",
+          "title": "Every step completed in the app.",
+          "text": "The team pack is a file on this device. You decide whether to share it.",
+          "actions": [
+            {
+              "step": "guideDone"
+            }
+          ]
+        },
+        {
+          "id": "cta",
+          "kind": "card",
+          "duration": 9,
+          "screen": "Closing card: product name, research-network link, repository, independence disclaimer",
+          "kicker": "OPEN SOURCE · NO ACCOUNT NEEDED",
+          "title": "Try Science Record Player.",
+          "text": "science-record-player.web.app/network/ · github.com/dhuzard/science-record-player"
+        }
+      ]
+    }
+  }
+}

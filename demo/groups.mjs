@@ -2,8 +2,10 @@
 //   node demo/groups.mjs [site-dir]
 // Part 1 uses the network app's labelled Demo workspace. Part 2 uses the Group view with synthetic
 // ORCID records served in place of the live API (demo/synthetic.mjs); on screen they are marked "Demo".
+// `groupSteps` (below) are the local-group actions as reusable steps, for demo/organize-campaign.mjs (#59).
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { OUT, RAW, SITE, caption, record, cut, square, concat, topic, titleCard, serveSite } from './lib.mjs';
 import { serveSyntheticOrcid, demoPeople } from './synthetic.mjs';
 
@@ -16,6 +18,42 @@ const serveAs = (ctx, base) => ctx.route(`${HOSTED}**`, async (route) => {
 const type = (loc, text) => loc.pressSequentially(text, { delay: 45 });
 // Bring an element to the upper part of the viewport so the caption panel never covers it.
 const top = (loc) => loc.evaluate(el => { el.scrollIntoView({ block: 'start' }); window.scrollBy(0, -130); });
+
+// Reusable local-group steps (#59): create a curated group from contacts, select project outputs and
+// download the team pack. Each step waits for the app's own confirmation (or the real download).
+// Labels are checked against web/network/app.js by tests/test_organize_campaign.py.
+export const groupSteps = {
+  async createGroup(p, { name, members, delay = 40 }) {
+    await p.evaluate(() => { location.hash = 'groups'; window.scrollTo(0, 0); });
+    await p.getByRole('button', { name: '+ New group' }).click();
+    const box = p.getByLabel('Group name');
+    await top(box); await p.waitForTimeout(300);
+    await box.pressSequentially(name, { delay });
+    for (const given of members) { await p.locator('.editor .check-label', { hasText: `${given} ` }).locator('input').check(); await p.waitForTimeout(250); }
+    await p.getByRole('button', { name: 'Create group' }).click();
+    await p.locator('#notice', { hasText: 'Group created.' }).waitFor();
+    const card = p.locator('.group-card', { hasText: name });
+    await top(card); await p.waitForTimeout(700);
+    await card.getByRole('button', { name: 'Open group →' }).click();
+  },
+  async selectOutputs(p, { count = 1 }) {
+    await p.getByRole('tab', { name: 'Project outputs' }).click();
+    await top(p.locator('#group-panel')); await p.waitForTimeout(500);
+    for (let i = 0; i < count; i++) {
+      await p.getByRole('button', { name: /^Select for project: / }).first().click();
+      await p.locator('#notice', { hasText: 'Output selected for this project.' }).waitFor();
+      await p.waitForTimeout(500);
+    }
+  },
+  // Returns the downloaded file, so the caller can check what it holds.
+  async downloadTeamPack(p) {
+    await p.getByRole('tab', { name: 'Team pack' }).click();
+    await top(p.locator('#group-panel')); await p.waitForTimeout(500);
+    const [file] = await Promise.all([p.waitForEvent('download'), p.getByRole('button', { name: '↓ Download team pack' }).click()]);
+    await p.locator('#notice', { hasText: 'Team pack downloaded' }).waitFor();
+    return { name: file.suggestedFilename(), path: await file.path() };
+  },
+};
 
 async function working(b, base) {
   const segs = [];
@@ -105,6 +143,8 @@ async function view(b, base) {
   return { mp4, segs };
 }
 
+const main = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (main) {
 const site = await serveSite();
 const browser = await chromium.launch();
 try {
@@ -128,3 +168,4 @@ try {
   };
   for (const [name, src] of Object.entries(clips)) square(src, resolve(OUT, `${name}.mp4`));
 } finally { await browser.close(); site.stop(); }
+}

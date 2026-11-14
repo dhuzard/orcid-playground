@@ -77,6 +77,7 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | INF-14 | Rename `orcid_biosketch` / `orcid-biosketch` / `<orcid-*>` with compatibility aliases | P2 | in-review | session |
 | INF-15 | Pre-promotion audit: scientific claims, privacy boundaries, brand readiness (#55) | P0 | in-review | session |
 | ONB-01 | Guided first-run journeys and Studio → Contacts → Groups handoffs (#56) | P1 | in-review | session |
+| VID-01 | Connect & Organize demo video: Contacts, follow-ups and Groups (#59) | P1 | in-progress | session |
 
 ---
 
@@ -965,6 +966,14 @@ imported person, so removing someone's tags did not remove them from the list.
 - **Known limitation** The existing bulk imports, “I just met people” → **Import & tag** and a group's **Import & add to group**, still follow every newly imported person, as on `main` before #56; only the Explore handoffs (Save as contact / Add to group) import without following. Aligning the bulk flows would change existing import behaviour and is left for a separate decision.
 - **Open** The 5 scientists + 5 coordinators usability study (task success, friction, privacy comprehension; no notes or identifiers in public tickets); real-device and screen-reader checks; a run on the live site with Pyodide and real ORCID responses.
 
+## VID-01 — Connect & Organize demo video: Contacts, follow-ups and Groups (#59)
+
+- **Priority** P1 · **Status** in-progress (draft prepared, **not approved for publication**) · **Owner** session
+- **Composition** `demo/organize-campaign.json` drives `demo/organize-campaign.mjs`: a 65 s social cut (16:9 and native 1080x1080, following the #59 storyboard 0–6–16–28–38–50–56–65 s) and a 150 s walkthrough. The steps are reusable `contactSteps` / `groupSteps` exported by `demo/contacts.mjs` and `demo/groups.mjs`; recording and cutting use `demo/lib.mjs`.
+- **Honesty by construction** The whole Contact → tag → note → follow-up → Group → project output → team pack path is one continuous take in a fresh browser profile; every step waits for the app's own confirmation and the render fails if one overruns its segment. Only the fictional "(Demo)" records of `demo/synthetic.mjs` are used; other external requests are blocked and listed. The downloaded team pack is opened and must hold the members and none of the typed note, follow-up or meeting tag. Captions include "Your notes stay in this browser by default", "No invitation or notification sent" and "Curated membership/project attribution is not independently verified"; no narration or music asset.
+- **Evidence** `tests/test_organize_campaign.py` (storyboard timings, continuity, every clicked label present in `web/network/app.js`, claim rules, reading speed, caption files and transcript in sync, drafts marked and blocked); drafts in `communications/video-drafts/organize-*`.
+- **Open** Re-render from the merged and deployed #56 commit; owner review against `organize-review-checklist-DRAFT.md` (storyboard/screenshot gate, mobile playback), #55 and Release B; #44 outcome. Narration/music versions only with recorded licences.
+
 ## Change log
 
 Append-only. Newest entries at the bottom. One line per status or scope change.
@@ -1061,3 +1070,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-11-14 | NAV-01 | Shared SRP menu and brand on every page, network page rebranded, cloud Teams removed from navigation and labelled experimental; regression tests for deep links, keyboard and 320px (#54) | — → in-review |
 | 2026-11-14 | INF-15 | Claims/privacy audit, release checklist and regression tests (#55); production checks and #44 remain open | — → in-review |
 | 2026-11-14 | ONB-01 | Guided Explore & Play / Connect & Organize journeys, Save as contact / Add to group handoffs with confirmation and dedupe, sample-data guard and removal, browser journeys at desktop/375/320px (#56); user study pending | — → in-review |
+| 2026-11-14 | VID-01 | Connect & Organize demo composition, renderer, captions, transcript, post and review checklist (#59), stacked on #66; draft only, blocked by #44 and Release B | — → in-progress |

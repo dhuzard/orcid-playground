@@ -86,3 +86,28 @@ science-record-player.web.app  #ORCID #OpenScience #FAIR #ResearchData
 **Clip 5.** A local pilot for following collaborators' public outputs and curating working groups. Sample data is labelled Demo; membership is never presented as verified.
 
 Post tip: LinkedIn autoplays muted, so the captions carry the message. Upload the MP4 natively rather than linking it.
+
+## Connect & Organize cuts (#59, draft)
+
+`node demo/organize-campaign.mjs site` renders the Connect & Organize cuts from `demo/organize-campaign.json`. **Draft,
+not approved for publication**: blocked by #44 and Release B in `communications/release-checklist.md`, and it records
+the guided flow of PR #66 (#56), which must be merged and deployed before a reviewed render.
+
+The whole path (Contacts import with a meeting tag → private note → follow-up → local Group → project output → team
+pack) is **one continuous take** per cut, in a fresh browser profile, with the fictional "(Demo)" researchers of
+`demo/synthetic.mjs` served in place of the ORCID API and every other external request blocked. Each segment starts
+at its planned time; its actions use the reusable `contactSteps` / `groupSteps` exported by `contacts.mjs` and
+`groups.mjs`, wait for the app's own confirmation, and the render fails if one overruns its segment. The downloaded
+team pack is opened and checked: members present, typed note, follow-up and meeting tag absent.
+The cuts are silent with burned-in captions; `--narration=<file>` / `--music=<file>` add an optional audio version, and
+no audio file is included. `--variant=` and `--format=` render one output. `node demo/organize-campaign.mjs --text-only`
+rewrites only the caption files and transcript (`communications/video-drafts/organize-*`). In the manual workflow,
+tick the `organize_campaign` input.
+
+| File | Length | Segments |
+|---|---|---|
+| `organize-campaign-landscape.mp4` | 65 s, 1280x720 | hook 6 · import 10 · note 12 · follow-up 10 · group 12 · export 6 · cta 9 |
+| `organize-campaign-square.mp4` | 65 s, 1080x1080 | same, recorded natively square |
+| `organize-walkthrough-landscape.mp4` | 150 s, 1280x720 | intro, guide, import, Save as contact, note, follow-ups, group, project outputs, team pack, all done, cta |
+| `organize-campaign-manifest.json` | | renderer commit, served build digest (checked against a fresh build), render date, data source, measured durations, per-segment slack, blocked requests, team-pack check |
+| `organize-*-thumbnail.png` | | frame 3 s into each cut |

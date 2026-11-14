@@ -1,0 +1,54 @@
+1
+00:00:00,400 --> 00:00:06,900
+Remember that scientist you met?
+From a conversation to a team pack, with fictional (Demo) researchers.
+
+2
+00:00:07,400 --> 00:00:20,900
+Seven steps, one real workflow.
+Your notes stay in this browser by default. Download a backup file before you rely on them.
+
+3
+00:00:21,400 --> 00:00:36,900
+Save scientific contacts.
+Paste ORCID iDs and name the meeting. Each public record is read once, on your request, and tagged.
+
+4
+00:00:37,400 --> 00:00:54,900
+Or save one person at a time.
+Save as contact asks first, reads the public record once, and does not follow or notify the person.
+
+5
+00:00:55,400 --> 00:01:09,900
+Remember the conversation.
+Your notes stay in this browser by default. They are not part of anyone's public record.
+
+6
+00:01:10,400 --> 00:01:25,900
+Keep your promises.
+A follow-up with a due date, listed with everything you owe people. No invitation or notification sent.
+
+7
+00:01:26,400 --> 00:01:41,900
+Turn contacts into working groups.
+A group you curate in this browser. Curated membership/project attribution is not independently verified.
+
+8
+00:01:42,400 --> 00:01:55,900
+Choose what belongs to the project.
+Selecting an output records your decision. It does not change ORCID or confirm authorship.
+
+9
+00:01:56,400 --> 00:02:09,900
+Organize the science.
+Roster, bibliography and member biosketches in one file. Contact tags, notes and follow-ups are not included.
+
+10
+00:02:10,400 --> 00:02:20,900
+Every step completed in the app.
+The team pack is a file on this device. You decide whether to share it.
+
+11
+00:02:21,400 --> 00:02:29,900
+Try Science Record Player.
+science-record-player.web.app/network/ · github.com/dhuzard/science-record-player

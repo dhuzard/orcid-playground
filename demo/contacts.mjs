@@ -2,14 +2,71 @@
 //   node demo/contacts.mjs [site-dir]
 // Contacts import people by ORCID iD, so the four fictional "(Demo)" researchers of demo/synthetic.mjs are
 // served in place of the live API. Tags, notes and follow-ups are typed live; nothing is pre-filled.
+// `contactSteps` (below) are the same real UI actions as reusable steps, for demo/organize-campaign.mjs (#59).
 import { chromium } from 'playwright';
 import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { OUT, RAW, SITE, caption, record, cut, square, concat, topic, titleCard, serveSite } from './lib.mjs';
 import { serveSyntheticOrcid, demoPeople } from './synthetic.mjs';
 
 const type = (loc, text) => loc.pressSequentially(text, { delay: 45 });
 const top = (loc) => loc.evaluate(el => { el.scrollIntoView({ block: 'start' }); window.scrollBy(0, -130); });
 const ids = demoPeople.slice(0, 3).map(x => x.orcid);
+
+// Reusable Contacts steps (#59). Each one drives the real network UI and waits for the app's own
+// confirmation, so a recording only moves on once the action has completed. Labels are checked
+// against web/network/app.js by tests/test_organize_campaign.py.
+const contactCard = (p, given) => p.locator(`article[aria-label^="Contact: ${given} "]`);
+export const contactSteps = {
+  // "I just met people": name the context, paste iDs, preview, then Import & tag.
+  async importAndTag(p, { context, ids: list, delay = 40 }) {
+    const box = p.getByLabel('Conference or context', { exact: true });
+    await top(box); await p.waitForTimeout(300);
+    await box.pressSequentially(context, { delay });
+    await p.getByLabel('ORCID list').fill(list.join('\n')); await p.waitForTimeout(400);
+    await p.click('button:text-is("Preview list")'); await p.waitForTimeout(700);
+    await p.click('button:text-is("Import & tag")');
+    await p.waitForSelector('#notice:has-text("Finished")', { timeout: 90000 });
+    // "Finished" is also shown when an entry failed: every requested iD must have reached "done".
+    for (const id of list) {
+      if (await p.locator('.bulk-entry.done', { hasText: id }).count() !== 1) {
+        const status = await p.locator('.bulk-entry', { hasText: id }).first().innerText().catch(() => 'not listed');
+        throw new Error(`Import & tag did not complete for ${id}: ${status.replace(/\s+/g, ' ')}`);
+      }
+    }
+    await p.getByLabel('ORCID list').evaluate(el => { el.closest('.editor').scrollIntoView({ block: 'start' }); window.scrollBy(0, 260); });
+  },
+  // The "Save as contact" confirmation that Explore opens (#56): context, date met, private note, then confirm.
+  async saveAsContact(p, { context, met, note, delay = 40, hold = 500 }) {
+    await p.locator('#handoff').waitFor();
+    await top(p.locator('#handoff')); await p.waitForTimeout(600);
+    if (context) await p.getByLabel('Conference or context (optional)').pressSequentially(context, { delay });
+    if (met) await p.getByLabel('Date met (optional)').fill(met);
+    if (note) await p.getByLabel('Private note (optional)').pressSequentially(note, { delay });
+    await p.waitForTimeout(hold);
+    await p.getByRole('button', { name: 'Read record & save as contact' }).click();
+    await p.locator('#notice', { hasText: 'saved as a contact' }).waitFor({ timeout: 90000 });
+  },
+  async showCard(p, { given }) { await top(contactCard(p, given)); },
+  async addNote(p, { given, text, delay = 40 }) {
+    const card = contactCard(p, given);
+    const box = card.getByLabel(new RegExp(`^Note about ${given} `));
+    await top(card.locator('h4', { hasText: 'Notes' })); await p.waitForTimeout(300);
+    await box.pressSequentially(text, { delay });
+    await card.getByRole('button', { name: 'Add note' }).click();
+    await p.locator('#notice', { hasText: 'Note saved.' }).waitFor();
+  },
+  async addFollowUp(p, { given, title, due, delay = 40 }) {
+    const card = contactCard(p, given);
+    await top(card.locator('h4', { hasText: 'Follow-ups' })); await p.waitForTimeout(300);
+    await card.getByLabel(new RegExp(`^Follow-up with ${given} `)).pressSequentially(title, { delay });
+    await card.getByLabel('Due date').fill(due);
+    await card.getByRole('button', { name: 'Add follow-up' }).click();
+    await p.locator('#notice', { hasText: 'Follow-up added.' }).waitFor();
+    await top(card.locator('h4', { hasText: 'Follow-ups' }));
+  },
+  async showOpenFollowUps(p) { await top(p.locator('h3', { hasText: 'Open follow-ups' })); },
+};
 
 async function take(b, base) {
   const segs = [];
@@ -60,6 +117,8 @@ async function take(b, base) {
   return { mp4, segs };
 }
 
+const main = process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+if (main) {
 const site = await serveSite();
 const browser = await chromium.launch();
 try {
@@ -81,3 +140,4 @@ try {
   };
   for (const [name, src] of Object.entries(clips)) square(src, resolve(OUT, `${name}.mp4`));
 } finally { await browser.close(); site.stop(); }
+}

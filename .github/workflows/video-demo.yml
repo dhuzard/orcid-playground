@@ -4,6 +4,11 @@ name: Render scientist-facing demo videos
 # correctness signal, so it should not gate pushes or pull requests.
 on:
   workflow_dispatch:
+    inputs:
+      organize_campaign:
+        description: "Also render the Connect & Organize draft cuts (#59, demo/organize-campaign.mjs). Drafts only: not approved for publication."
+        type: boolean
+        default: false
 
 concurrency:
   group: video-demo-${{ github.ref }}
@@ -46,6 +51,9 @@ jobs:
         run: node demo/extras.mjs site
       - name: Assemble chaptered feature tour, invitation and review notes
         run: node demo/full-tour.mjs site
+      - name: Capture Connect & Organize draft cuts (optional, #59)
+        if: ${{ inputs.organize_campaign }}
+        run: node demo/organize-campaign.mjs site
       - name: Upload reviewable videos
         uses: actions/upload-artifact@v4
         with:
@@ -54,6 +62,8 @@ jobs:
             demo/out/*.mp4
             demo/out/chapters.txt
             demo/out/video-review-checklist.txt
+            demo/out/organize-campaign-manifest.json
+            demo/out/organize-*-thumbnail.png
           retention-days: 7
       - name: Report important caveat
         run: |
