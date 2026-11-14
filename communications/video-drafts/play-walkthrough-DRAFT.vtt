@@ -1,0 +1,55 @@
+WEBVTT
+
+NOTE DRAFT — NOT APPROVED FOR PUBLICATION. Blocked by #44 and communications/release-checklist.md Release B.
+
+NOTE Captions for Explore & Play — walkthrough. The video is silent; these repeat the on-screen captions.
+
+intro
+00:00:00.400 --> 00:00:05.900
+What if your research record had a Play button?
+Built from public ORCID assertions.
+
+profile
+00:00:06.400 --> 00:00:19.900
+Start from one public record.
+A stored copy of a public ORCID record, labelled on screen. Everything is generated in your browser.
+
+card
+00:00:20.400 --> 00:00:31.900
+Your scientific trading card.
+Every value on the card comes from an asserted field. It is a playful format, not a measure of merit or impact.
+
+heatmap
+00:00:32.400 --> 00:00:43.900
+Honest about quiet years.
+One cell per month of dated outputs. Undated outputs are noted, not placed, and gaps stay visible.
+
+wrapped
+00:00:44.400 --> 00:00:57.900
+A year in review, no invented numbers.
+Every figure traces back to a field in the record. Counts describe activity, not quality or impact.
+
+fortune
+00:00:58.400 --> 00:01:05.900
+Rediscover something you wrote.
+A title drawn from the record itself.
+
+check
+00:01:06.400 --> 00:01:20.900
+Know what to fix, and why.
+A scored rubric over the public record, with a concrete fix for each finding. It checks record metadata, not research quality.
+
+funder
+00:01:21.400 --> 00:01:33.900
+Draft NIH, ERC or Horizon biosketches.
+Pre-filled from asserted fields only. A draft, not an official funder form: review and complete it.
+
+citations
+00:01:34.400 --> 00:01:45.900
+Take your data with you.
+BibTeX, RIS, CSL JSON, Schema.org JSON-LD and Markdown. Biosketch JSON keeps per-field provenance.
+
+cta
+00:01:46.400 --> 00:01:54.900
+Science Record Player · Publish or Play
+science-record-player.web.app · github.com/dhuzard/science-record-player

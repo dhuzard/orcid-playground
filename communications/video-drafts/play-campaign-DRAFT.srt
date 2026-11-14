@@ -1,0 +1,28 @@
+1
+00:00:00,400 --> 00:00:04,900
+What if your research record had a Play button?
+
+2
+00:00:05,400 --> 00:00:11,900
+One public record.
+A stored copy of one public ORCID record, read in your browser.
+
+3
+00:00:12,400 --> 00:00:19,900
+Your scientific trading card.
+Built only from what the record asserts. A playful format, not a measure of merit.
+
+4
+00:00:20,400 --> 00:00:28,900
+Your research journey, visualized.
+Dated outputs by month, then a year in review. Activity, not impact.
+
+5
+00:00:29,400 --> 00:00:34,900
+Useful outputs, too.
+Concrete fixes for the record, plus BibTeX, RIS and CSL JSON.
+
+6
+00:00:35,400 --> 00:00:41,900
+Science Record Player · Publish or Play
+science-record-player.web.app

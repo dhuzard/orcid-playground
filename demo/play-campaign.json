@@ -1,0 +1,328 @@
+{
+  "_comment": "Explore & Play launch video composition (#58). DRAFT: not approved for publication (blocked by #44 and communications/release-checklist.md Release B). Read by demo/play-campaign.mjs and tests/test_play_campaign.py. Times are seconds; each segment is cut to exactly its duration from one deterministic screen take.",
+  "status": "DRAFT — NOT APPROVED FOR PUBLICATION",
+  "blocked_by": [
+    "#44",
+    "communications/release-checklist.md Release B"
+  ],
+  "data_source": "The stored demonstration profile served with the built site (generated/biosketch.json), shown with its on-screen 'stored, offline' label. No live ORCID API call is made.",
+  "audio": {
+    "_comment": "Off by default. No narration or music asset is included in the repository; pass --narration=<file> or --music=<file> to mix one in.",
+    "narration": null,
+    "music": null,
+    "music_gain_db": -24
+  },
+  "brand": {
+    "aubergine": "#3a2737",
+    "vinyl": "#21181f",
+    "pink": "#e2b4c0",
+    "rose": "#a05a72",
+    "paper": "#faf6f7"
+  },
+  "formats": {
+    "landscape": {
+      "width": 1280,
+      "height": 720,
+      "kicker_px": 18,
+      "title_px": 44,
+      "body_px": 26,
+      "art_px": 410
+    },
+    "square": {
+      "width": 1080,
+      "height": 1080,
+      "kicker_px": 26,
+      "title_px": 62,
+      "body_px": 36,
+      "art_px": 480
+    }
+  },
+  "hide_selectors": [
+    "#result ~ *",
+    ".result-actions",
+    "#me",
+    "[data-guide]",
+    ".guide",
+    ".onboarding",
+    "#account"
+  ],
+  "sample_label": "Stored demo profile · local build",
+  "variants": {
+    "play-campaign": {
+      "title": "Explore & Play — LinkedIn cut",
+      "formats": [
+        "square",
+        "landscape"
+      ],
+      "segments": [
+        {
+          "id": "hook",
+          "kind": "card",
+          "duration": 5,
+          "screen": "Title card: Science Record Player record mark",
+          "kicker": "SCIENCE RECORD PLAYER",
+          "title": "What if your research record had a Play button?",
+          "text": ""
+        },
+        {
+          "id": "profile",
+          "kind": "studio",
+          "duration": 7,
+          "screen": "Studio homepage at the stored-profile chip, then the generated profile",
+          "kicker": "STORED DEMO PROFILE",
+          "title": "One public record.",
+          "text": "A stored copy of one public ORCID record, read in your browser.",
+          "actions": [
+            {
+              "wait": 2.4
+            },
+            {
+              "scrollTo": "#result"
+            }
+          ]
+        },
+        {
+          "id": "card",
+          "kind": "studio",
+          "duration": 8,
+          "screen": "Studio, Trading card tab",
+          "kicker": "TRADING CARD",
+          "title": "Your scientific trading card.",
+          "text": "Built only from what the record asserts. A playful format, not a measure of merit.",
+          "actions": [
+            {
+              "tab": "Trading card"
+            }
+          ]
+        },
+        {
+          "id": "journey",
+          "kind": "studio",
+          "duration": 9,
+          "screen": "Studio, Heatmap tab, then Wrapped tab",
+          "kicker": "HEATMAP · WRAPPED",
+          "title": "Your research journey, visualized.",
+          "text": "Dated outputs by month, then a year in review. Activity, not impact.",
+          "actions": [
+            {
+              "tab": "Heatmap"
+            },
+            {
+              "wait": 4.2
+            },
+            {
+              "tab": "Wrapped"
+            }
+          ]
+        },
+        {
+          "id": "useful",
+          "kind": "studio",
+          "duration": 6,
+          "screen": "Studio, Record check tab, then Citations & data tab",
+          "kicker": "RECORD CHECK · CITATIONS",
+          "title": "Useful outputs, too.",
+          "text": "Concrete fixes for the record, plus BibTeX, RIS and CSL JSON.",
+          "actions": [
+            {
+              "tab": "Record check"
+            },
+            {
+              "wait": 2.8
+            },
+            {
+              "tab": "Citations & data"
+            }
+          ]
+        },
+        {
+          "id": "cta",
+          "kind": "card",
+          "duration": 7,
+          "screen": "Closing card: product name, URL, independence disclaimer",
+          "kicker": "OPEN SOURCE · NO ACCOUNT NEEDED",
+          "title": "Science Record Player · Publish or Play",
+          "text": "science-record-player.web.app"
+        }
+      ]
+    },
+    "play-walkthrough": {
+      "title": "Explore & Play — walkthrough",
+      "formats": [
+        "landscape"
+      ],
+      "segments": [
+        {
+          "id": "intro",
+          "kind": "card",
+          "duration": 6,
+          "screen": "Title card: Science Record Player record mark",
+          "kicker": "SCIENCE RECORD PLAYER",
+          "title": "What if your research record had a Play button?",
+          "text": "Built from public ORCID assertions."
+        },
+        {
+          "id": "profile",
+          "kind": "studio",
+          "duration": 14,
+          "screen": "Studio homepage at the stored-profile chip, then the generated profile",
+          "kicker": "STORED DEMO PROFILE",
+          "title": "Start from one public record.",
+          "text": "A stored copy of a public ORCID record, labelled on screen. Everything is generated in your browser.",
+          "actions": [
+            {
+              "wait": 3.5
+            },
+            {
+              "scrollTo": "#result"
+            },
+            {
+              "wait": 4
+            },
+            {
+              "scroll": 380
+            }
+          ]
+        },
+        {
+          "id": "card",
+          "kind": "studio",
+          "duration": 12,
+          "screen": "Studio, Trading card tab",
+          "kicker": "TRADING CARD",
+          "title": "Your scientific trading card.",
+          "text": "Every value on the card comes from an asserted field. It is a playful format, not a measure of merit or impact.",
+          "actions": [
+            {
+              "tab": "Trading card"
+            }
+          ]
+        },
+        {
+          "id": "heatmap",
+          "kind": "studio",
+          "duration": 12,
+          "screen": "Studio, Heatmap tab",
+          "kicker": "HEATMAP",
+          "title": "Honest about quiet years.",
+          "text": "One cell per month of dated outputs. Undated outputs are noted, not placed, and gaps stay visible.",
+          "actions": [
+            {
+              "tab": "Heatmap"
+            }
+          ]
+        },
+        {
+          "id": "wrapped",
+          "kind": "studio",
+          "duration": 14,
+          "screen": "Studio, Wrapped tab",
+          "kicker": "WRAPPED",
+          "title": "A year in review, no invented numbers.",
+          "text": "Every figure traces back to a field in the record. Counts describe activity, not quality or impact.",
+          "actions": [
+            {
+              "tab": "Wrapped"
+            },
+            {
+              "wait": 6
+            },
+            {
+              "scroll": 300
+            }
+          ]
+        },
+        {
+          "id": "fortune",
+          "kind": "studio",
+          "duration": 8,
+          "screen": "Studio, Fortune tab, then its own “Another one” button (seeded draw)",
+          "kicker": "FORTUNE",
+          "title": "Rediscover something you wrote.",
+          "text": "A title drawn from the record itself.",
+          "actions": [
+            {
+              "tab": "Fortune"
+            },
+            {
+              "wait": 1.5
+            },
+            {
+              "click": "#panel .tools button"
+            }
+          ]
+        },
+        {
+          "id": "check",
+          "kind": "studio",
+          "duration": 15,
+          "screen": "Studio, Record check tab (scrolling through findings)",
+          "kicker": "RECORD CHECK",
+          "title": "Know what to fix, and why.",
+          "text": "A scored rubric over the public record, with a concrete fix for each finding. It checks record metadata, not research quality.",
+          "actions": [
+            {
+              "tab": "Record check"
+            },
+            {
+              "wait": 5
+            },
+            {
+              "scroll": 300
+            },
+            {
+              "wait": 4
+            },
+            {
+              "scroll": 300
+            }
+          ]
+        },
+        {
+          "id": "funder",
+          "kind": "studio",
+          "duration": 13,
+          "screen": "Studio, Funder biosketch tab",
+          "kicker": "FUNDER TEMPLATES",
+          "title": "Draft NIH, ERC or Horizon biosketches.",
+          "text": "Pre-filled from asserted fields only. A draft, not an official funder form: review and complete it.",
+          "actions": [
+            {
+              "tab": "Funder biosketch"
+            },
+            {
+              "wait": 6
+            },
+            {
+              "scroll": 260
+            }
+          ]
+        },
+        {
+          "id": "citations",
+          "kind": "studio",
+          "duration": 12,
+          "screen": "Studio, Citations & data tab",
+          "kicker": "CITATIONS & DATA",
+          "title": "Take your data with you.",
+          "text": "BibTeX, RIS, CSL JSON, Schema.org JSON-LD and Markdown. Biosketch JSON keeps per-field provenance.",
+          "actions": [
+            {
+              "tab": "Citations & data"
+            }
+          ]
+        },
+        {
+          "id": "cta",
+          "kind": "card",
+          "duration": 9,
+          "screen": "Closing card: product name, URL, independence disclaimer",
+          "kicker": "OPEN SOURCE · NO ACCOUNT NEEDED",
+          "title": "Science Record Player · Publish or Play",
+          "text": "science-record-player.web.app · github.com/dhuzard/science-record-player"
+        }
+      ]
+    }
+  },
+  "preroll_scroll": ".try"
+}

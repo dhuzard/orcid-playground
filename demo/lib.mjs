@@ -41,9 +41,10 @@ export async function caption(page, kicker, title, text) {
 }
 
 // Record one take to mp4. `body(page, at)` runs the take; at() returns seconds since the video began.
-export async function record(browser, id, body, setup) {
+// `size` defaults to the 1280x720 master; play-campaign.mjs also records native 1080x1080 takes.
+export async function record(browser, id, body, setup, size = { width: W, height: H }) {
   const dir = resolve(RAW, id); rmSync(dir, { recursive: true, force: true });
-  const ctx = await browser.newContext({ viewport: { width: W, height: H }, bypassCSP: true, recordVideo: { dir, size: { width: W, height: H } } });
+  const ctx = await browser.newContext({ viewport: size, bypassCSP: true, recordVideo: { dir, size } });
   if (setup) await setup(ctx);
   const t0 = Date.now();
   const page = await ctx.newPage();
