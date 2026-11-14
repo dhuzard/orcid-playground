@@ -33,3 +33,32 @@ html:not([data-hosted="true"]) .srp-nav{display:none}
   .brand-owner{font-size:9.5px}
   .sidebar .workspace-label{position:static;margin:-6px 0 0}
 }
+/* First-run guide, Explore handoffs, storage note and the labelled sample (#56). */
+.demo-banner{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:space-between}
+.demo-banner[hidden]{display:none}
+.demo-banner .button{width:auto;flex:0 0 auto;margin:0}
+.guide,.handoff{margin-top:24px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;min-width:0;overflow-wrap:anywhere}
+.handoff{border:2px solid var(--brand)}
+.guide:focus,.handoff h2:focus,.contact-card:focus,#handoff-error:focus{outline:3px solid #733b4e;outline-offset:3px}
+.guide h2,.handoff h2{font-family:var(--display);font-weight:400;font-size:24px;margin:6px 0 10px}
+.guide-head{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.guide-head .button,.handoff .card-actions .button,.next-steps .button{width:auto;margin:0}
+.guide-steps{margin:14px 0;padding-left:22px;display:grid;gap:8px;font-size:13px;line-height:1.5}
+.guide-steps li.done a{color:var(--muted)}
+.step-state{display:inline-block;min-width:58px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#7c515f}
+.guide-steps li.done .step-state{color:#2f6b3f}
+.storage-note{margin:12px 0;padding:12px 14px;background:#fbf3e6;border:1px solid #e3c99a;border-radius:9px;font-size:12px;line-height:1.7;color:#4b3a22}
+.storage-note .button{width:auto;margin:6px 0 0}
+.storage-note.compact{margin-top:0}
+.concepts{margin-top:12px;font-size:12px;line-height:1.6}
+.concepts summary{cursor:pointer;font-weight:600;color:var(--brand)}
+.concepts dl{margin:10px 0 0;display:grid;grid-template-columns:max-content 1fr;gap:6px 14px}
+.concepts dt{font-weight:700}.concepts dd{margin:0;color:var(--ink)}
+.next-steps{margin:20px auto 0;max-width:560px;text-align:left;font-size:13px;line-height:1.6}
+.next-steps h3{font-size:14px;margin:0 0 6px}.next-steps ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.contact-name{font-size:14px;margin:0}
+.contact-card .card-actions{flex-wrap:wrap}
+.contact-card .person-groups{width:100%}
+.contact-card .button.person-groups-trigger{position:static;width:auto;height:auto;padding:8px 10px;font-size:12px;line-height:1.5}
+#guide-toggle,#demo{width:auto}
+@media(max-width:720px){.guide,.handoff{padding:16px}.concepts dl{grid-template-columns:1fr}.concepts dd{margin-bottom:6px}}

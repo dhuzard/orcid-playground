@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { safeUrl, dateLabel, feedEntries, feedItems, feedTopics, scopeIds, groupSuggestions, sinceLastVisit, nextVisit, foldKey, groupWorks, parseOrcidList, groupRoute, addRoute, bookmarklet, removalImpact, allTags, openActions } from './app.js';
+import { safeUrl, dateLabel, feedEntries, feedItems, feedTopics, scopeIds, groupSuggestions, sinceLastVisit, nextVisit, foldKey, groupWorks, parseOrcidList, groupRoute, addRoute, bookmarklet, removalImpact, allTags, openActions, handoffRoute, knownPerson, workspaceSummary, sampleMessage, guideSteps, sampleRemoval, defaultHandoffGroup } from './app.js';
 
 test('external links reject executable and relative URLs', () => {
   for (const value of ['javascript:alert(1)', 'data:text/html,hello', '/api/state', '', null]) assert.equal(safeUrl(value), null);
@@ -224,4 +224,79 @@ test('removing someone lists only outputs nobody else here lists, their groups a
   assert.deepEqual(removalImpact(data, 'a'), { outputs: 2, saved: 1, groups: ['Lab'], contact: true });
   assert.deepEqual(removalImpact(data, 'b'), { outputs: 1, saved: 1, groups: ['Lab', 'Other'], contact: false });
   assert.deepEqual(removalImpact({ works: [], groups: [] }, 'x'), { outputs: 0, saved: 0, groups: [], contact: false });
+});
+
+// ---- Guided first-run journeys and Explore handoffs (#56) ----
+
+test('Explore handoffs: Save as contact and Add to group carry one valid iD, and nothing else does', () => {
+  assert.deepEqual(handoffRoute('#contacts?save=0000-0002-1825-0097'), { intent: 'contact', raw: '0000-0002-1825-0097', id: '0000-0002-1825-0097', valid: true });
+  assert.deepEqual(handoffRoute('#groups?add=https%3A%2F%2Forcid.org%2F0000-0002-1825-0097'), { intent: 'group', raw: 'https://orcid.org/0000-0002-1825-0097', id: '0000-0002-1825-0097', valid: true });
+  // A bad check digit, two iDs or junk are shown as invalid, never imported.
+  for (const bad of ['0000-0002-1825-0098', '0000-0002-1825-0097 0000-0001-5109-3700', '<script>']) {
+    const route = handoffRoute(`#contacts?save=${encodeURIComponent(bad)}`);
+    assert.equal(route.valid, false, bad);
+    assert.equal(route.id, '');
+  }
+  assert.equal(handoffRoute(`#contacts?save=${'1'.repeat(5000)}`).raw.length, 200);
+  // The bookmarklet's #contacts?add= keeps its own meaning (the "I just met people" list).
+  for (const hash of ['#contacts?add=0000-0002-1825-0097', '#contacts', '#groups', '#groups/abc', '#people?save=0000-0002-1825-0097', '#contacts?save=']) assert.equal(handoffRoute(hash), null, hash);
+  assert.equal(groupRoute('#groups?add=0000-0002-1825-0097').view, 'groups');
+  assert.equal(groupRoute('#contacts?save=0000-0002-1825-0097').view, 'contacts');
+});
+
+const real = { id: '0000-0002-1825-0097', orcid: '0000-0002-1825-0097', demo: false };
+const sample = { id: 'demo-ada', orcid: null, demo: true };
+
+test('a handoff reuses the real record for an iD, never a sample person', () => {
+  const data = { people: [sample, real], groups: [], contacts: {} };
+  assert.equal(knownPerson(data, '0000-0002-1825-0097'), real);
+  assert.equal(knownPerson(data, '0000-0001-5109-3700'), null);
+});
+
+test('the sample question counts your own network apart from the sample, and is skipped once loaded', () => {
+  const empty = workspaceSummary({ people: [], groups: [], contacts: {} });
+  assert.deepEqual(empty, { people: 0, sample_people: 0, contacts: 0, groups: 0, sample_groups: 0 });
+  assert.match(sampleMessage(empty), /labelled sample[\s\S]*stored in this browser[\s\S]*labelled “Demo”[\s\S]*Remove sample data/);
+  const mine = workspaceSummary({ people: [real], groups: [{ id: 'g1', member_ids: [real.id] }], contacts: { [real.id]: { tags: [], notes: [], actions: [] } } });
+  assert.deepEqual(mine, { people: 1, sample_people: 0, contacts: 1, groups: 1, sample_groups: 0 });
+  assert.match(sampleMessage(mine), /already holds your own network: 1 researcher, 1 contact and 1 group\. Nothing of yours is replaced or changed/);
+  const mixed = workspaceSummary({ people: [real, sample], groups: [{ id: 'demo-open-science', member_ids: [sample.id] }], contacts: { 'demo-ada': { tags: [], notes: [], actions: [] } } });
+  assert.deepEqual(mixed, { people: 1, sample_people: 1, contacts: 0, groups: 0, sample_groups: 1 });
+  assert.equal(sampleMessage(mixed), null);
+});
+
+test('the Connect & Organize guide follows the workspace, step by step', () => {
+  const contact = (over = {}) => ({ tags: [], met_on: '', notes: [], actions: [], ...over });
+  const done = (data, pack) => guideSteps(data, pack).filter(s => s.done).map(s => s.id);
+  assert.deepEqual(done({ people: [], groups: [], contacts: {} }), []);
+  // The sample alone does not tick the group step: a contact has to be in a group.
+  assert.deepEqual(done({ people: [sample], groups: [{ id: 'demo-open-science', member_ids: ['demo-ada'] }], contacts: {} }), ['person']);
+  const full = {
+    people: [sample], contacts: { 'demo-ada': contact({ tags: ['FENS 2026'], notes: [{ id: 'n' }], actions: [{ id: 'a' }] }) },
+    groups: [{ id: 'g', member_ids: ['demo-ada'], selected_work_ids: ['w'] }],
+  };
+  assert.deepEqual(done(full), ['person', 'context', 'note', 'follow-up', 'group', 'curate']);
+  assert.equal(done(full, true).length, 7);
+  assert.ok(guideSteps(full).every(s => s.href.startsWith('#')));
+});
+
+test('Remove sample data keeps a sample group holding your own members or requests (review of #66)', () => {
+  const people = [sample, real];
+  const untouched = { id: 'demo-open-science', name: 'Open Science Circle · Demo', description: 'A fictional working group for trying the pilot.', member_ids: ['demo-ada'], requests: [] };
+  assert.deepEqual(sampleRemoval({ people, groups: [untouched] }), { people: 1, deleted: 1, kept: [] });
+  const withReal = { ...untouched, member_ids: ['demo-ada', real.id] };
+  assert.deepEqual(sampleRemoval({ people, groups: [withReal] }), { people: 1, deleted: 0, kept: [{ id: 'demo-open-science', from: 'Open Science Circle · Demo', to: 'Open Science Circle' }] });
+  const withRequest = { ...untouched, requests: [{ id: 'r' }] };
+  assert.equal(sampleRemoval({ people, groups: [withRequest] }).kept.length, 1);
+  // The user's own name or description is kept too, as in NetworkStore.remove_demo.
+  assert.deepEqual(sampleRemoval({ people, groups: [{ ...untouched, name: 'Neuro consortium plan' }] }).kept.map(g => g.to), ['Neuro consortium plan']);
+  assert.equal(sampleRemoval({ people, groups: [{ ...untouched, description: 'Notes for our lab' }] }).kept.length, 1);
+});
+
+test('Add to group never defaults to the sample group', () => {
+  const sampleGroup = { id: 'demo-open-science', member_ids: [] };
+  const mine = { id: 'g1', member_ids: [] };
+  assert.equal(defaultHandoffGroup({ groups: [sampleGroup] }, null), '');
+  assert.equal(defaultHandoffGroup({ groups: [sampleGroup, mine] }, null), 'g1');
+  assert.equal(defaultHandoffGroup({ groups: [sampleGroup, { ...mine, member_ids: [real.id] }] }, real), '');
 });

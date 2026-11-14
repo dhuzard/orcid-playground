@@ -194,3 +194,81 @@ def test_store_leaves_no_database_handles_open():
         workspace.add_demo()
         workspace.state()
         workspace.path.unlink()
+
+
+def test_import_can_skip_following_a_new_record_but_never_changes_an_existing_preference(store):
+    # "Save as contact" and "Add to group" (#56) import without following; Follow stays a separate choice.
+    store.import_biosketch(bio(), follow=False)
+    assert store.state()["people"][0]["following"] is False
+    store.follow(ORCID_A, True)
+    store.import_biosketch(bio(), follow=False)  # a refresh keeps the explicit follow
+    assert store.state()["people"][0]["following"] is True
+    store.import_biosketch(bio(ORCID_B))  # the default is unchanged
+    assert {p["id"]: p["following"] for p in store.state()["people"]}[ORCID_B] is True
+    assert len(store.state()["people"]) == 2  # re-importing an iD never duplicates the person
+    with pytest.raises(ValueError):
+        store.import_biosketch(bio(), follow="no")
+
+
+def test_remove_demo_takes_out_the_sample_only(store):
+    store.import_biosketch(bio(works=[work()]))
+    store.tag_contacts([ORCID_A], ["FENS 2026"])
+    store.add_contact_note(ORCID_A, "Real private note")
+    store.add_demo()
+    store.tag_contacts(["demo-ada"], ["FENS 2026"])
+    mine = store.create_group("My group", "", [ORCID_A, "demo-sam"])
+    store.select_group_work(mine, store.state()["works"][-1]["id"], True)
+    assert store.remove_demo() == {"people": 3, "groups": 1, "kept_groups": []}
+    state = store.state()
+    assert [p["id"] for p in state["people"]] == [ORCID_A]
+    assert not any(p["demo"] for p in state["people"]) and not any(w["demo"] for w in state["works"])
+    assert [g["id"] for g in state["groups"]] == [mine]
+    assert state["groups"][0]["member_ids"] == [ORCID_A]
+    assert list(state["contacts"]) == [ORCID_A]
+    assert state["contacts"][ORCID_A]["notes"][0]["text"] == "Real private note"
+    assert state["contacts"][ORCID_A]["tags"] == ["FENS 2026"]
+    assert store.remove_demo() == {"people": 0, "groups": 0, "kept_groups": []}  # idempotent
+
+
+def test_remove_demo_keeps_a_sample_group_that_holds_the_users_own_curation(store):
+    # Review of #66: a real member, their local role and a curated output in the sample group survive.
+    store.add_demo()
+    store.import_biosketch(bio(works=[work()]), follow=False)
+    store.add_group_members("demo-open-science", [ORCID_A])
+    store.set_group_member("demo-open-science", ORCID_A, "PI", "imaging", "leads WP2")
+    real_work = next(w["id"] for w in store.state()["works"] if not w["demo"])
+    store.select_group_work("demo-open-science", real_work, True)
+    store.create_group_request("demo-open-science", "Share the protocol", "", ORCID_A, "")
+    result = store.remove_demo()
+    assert (result["people"], result["groups"]) == (3, 0)
+    [group] = store.state()["groups"]
+    assert result["kept_groups"] == [{"id": group["id"], "from": "Open Science Circle · Demo", "name": "Open Science Circle"}]
+    assert group["id"] != "demo-open-science" and group["name"] == "Open Science Circle"
+    assert group["description"] == ""
+    assert group["member_ids"] == [ORCID_A]
+    assert group["member_details"] == {ORCID_A: {"role": "PI", "expertise": "imaging", "contribution": "leads WP2"}}
+    assert group["selected_work_ids"] == [real_work]
+    assert [r["title"] for r in group["requests"]] == ["Share the protocol"]
+    # A sample group with only a request of the user's own is kept too; an untouched one is not.
+    store.add_demo()
+    store.create_group_request("demo-open-science", "Book a room", "", None, "")
+    assert [g["name"] for g in store.remove_demo()["kept_groups"]] == ["Open Science Circle"]
+    store.add_demo()
+    assert store.remove_demo() == {"people": 3, "groups": 1, "kept_groups": []}
+    assert len(store.state()["groups"]) == 2
+
+
+def test_remove_demo_keeps_a_sample_group_the_user_renamed_or_described(store):
+    # Follow-up review of #66: the user's own text is kept even with only sample people in it.
+    store.add_demo()
+    store.update_group("demo-open-science", "Neuro consortium plan", "Our real plan for 2027: WP1 imaging", ["demo-ada"])
+    store.set_group_member("demo-open-science", "demo-ada", "Coordinator", "", "")
+    result = store.remove_demo()
+    assert [g["name"] for g in result["kept_groups"]] == ["Neuro consortium plan"] and result["groups"] == 0
+    [group] = store.state()["groups"]
+    assert group["description"] == "Our real plan for 2027: WP1 imaging"
+    assert group["member_ids"] == [] and group["member_details"] == {}
+    # Only a new description counts too.
+    store.add_demo()
+    store.update_group("demo-open-science", "Open Science Circle · Demo", "Notes for our lab", ["demo-ada"])
+    assert [g["name"] for g in store.remove_demo()["kept_groups"]] == ["Open Science Circle"]

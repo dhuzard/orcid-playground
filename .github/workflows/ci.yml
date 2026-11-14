@@ -46,6 +46,11 @@ jobs:
         env:
           NODE_PATH: demo/node_modules
           SRP_REQUIRE_BROWSER: "1"
+      # Guided first-run journeys and Studio → Contacts → Groups handoffs, desktop/375/320px (#56).
+      - run: pytest -q tests/test_onboarding.py -rs
+        env:
+          NODE_PATH: demo/node_modules
+          SRP_REQUIRE_BROWSER: "1"
 
   rules:
     # Firestore security rules for private team workspaces, in the emulator.

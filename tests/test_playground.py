@@ -122,3 +122,11 @@ def test_member_and_group_outputs_from_public_records(browser):
     shared = {w["identifiers"]["doi"] for w in one["works"] if w["identifiers"].get("doi")}
     assert {o["doi"] for e in result["graph"]["edges"] for o in e["outputs"]} == {d.lower() for d in shared}
     assert result["heatmap_svg"].startswith("<svg") and all(w["asserted_by"] for w in result["bibliography"])
+
+
+def test_workspace_import_follow_flag_and_sample_removal_routes(tmp_path):
+    workspace = playground.Workspace(str(tmp_path / "w.sqlite3"))
+    assert json.loads(workspace.request("POST", "/api/import", '{"orcid": "0000-0002-1825-0097", "follow": "yes"}'))["status"] == 400
+    json.loads(workspace.request("POST", "/api/demo", "{}"))
+    reply = json.loads(workspace.request("POST", "/api/demo/remove", "{}"))
+    assert reply["status"] == 200 and json.loads(reply["body"])["people"] == []

@@ -76,6 +76,7 @@ non-ORCID sources must be labelled per field with its origin. Playful outputs
 | INF-13 | Final product name, hostname and repository migration | P0 | in-progress | owner |
 | INF-14 | Rename `orcid_biosketch` / `orcid-biosketch` / `<orcid-*>` with compatibility aliases | P2 | in-review | session |
 | INF-15 | Pre-promotion audit: scientific claims, privacy boundaries, brand readiness (#55) | P0 | in-review | session |
+| ONB-01 | Guided first-run journeys and Studio → Contacts → Groups handoffs (#56) | P1 | in-review | session |
 
 ---
 
@@ -954,6 +955,16 @@ imported person, so removing someone's tags did not remove them from the list.
 - [ ] #44 outcome for the rebranded app recorded.
 - [ ] Release A and B checklists signed by the owner on the deployed site.
 
+## ONB-01 — Guided first-run journeys and Studio → Contacts → Groups handoffs (#56)
+
+- **Priority** P1 · **Status** in-review · **Owner** session
+- **Explore & Play** A step-by-step guide under the homepage hero (stored demo profile → card / heatmap / Record check → export → keep the researcher) and a "What can I do next?" panel on every result. A result offers three distinct handoffs: **Save as contact** (`/network/#contacts?save=<iD>`), **Add to group** (`/network/#groups?add=<iD>`) and **Follow** (`/network/?import=<iD>`, unchanged route, clearer question), with a Follow / Contact / Group / Team explainer (Teams: not available).
+- **Connect & Organize** My Network shows a 7-step guide derived from the workspace (person → context tag → private note → follow-up → contact in a group → selected project output → team pack), a storage/backup note before any notes are written, "What can I do next?" empty states, and a **Guide** toggle. Contact and person cards link back to the same record in Explore (`/?orcid=<iD>&from=contacts|people|groups`), which still waits for the visitor to press Explore and offers "← Back to My Network".
+- **Safety** Handoffs open a confirmation panel: nothing is read from ORCID until the visitor confirms; invalid iDs are explained and never imported; an iD already in the workspace is reused (no second ORCID read, no duplicate; an existing contact opens instead). Save as contact and Add to group import with `follow: false` (new optional `/api/import` field; default unchanged). The labelled sample is added only after a question that counts the existing own network, and **Remove sample data** (`/api/demo/remove`, `NetworkStore.remove_demo`) takes out only demo people; a sample group that holds the user's own members, requests, name or description is kept (renamed without “· Demo”) with their roles, selected outputs and requests, and Add to group never defaults to a sample group. A handoff records a date met only when the user enters one. Storage keys, backup schema and import semantics are unchanged; one per-viewer convenience key (`srp-network-guide`) remembers whether the guide is hidden.
+- **Evidence** `tests/test_onboarding.py` + `tests/e2e/onboarding.e2e.cjs` (Chromium, desktop/375/320px: both journeys end to end, empty states, invalid iD, cancelled / failed / interrupted import, duplicate save, sample never overwriting a real workspace, Network → Explore → Network, refresh persistence, no contact tags/notes/follow-ups in the Group View link or the team pack), run by the CI `browser` job against the built site with CPython in place of Pyodide and fixture ORCID records; `web/network/app.test.mjs`; `tests/test_network_store.py`; `tests/test_playground.py`.
+- **Known limitation** The existing bulk imports, “I just met people” → **Import & tag** and a group's **Import & add to group**, still follow every newly imported person, as on `main` before #56; only the Explore handoffs (Save as contact / Add to group) import without following. Aligning the bulk flows would change existing import behaviour and is left for a separate decision.
+- **Open** The 5 scientists + 5 coordinators usability study (task success, friction, privacy comprehension; no notes or identifiers in public tickets); real-device and screen-reader checks; a run on the live site with Pyodide and real ORCID responses.
+
 ## Change log
 
 Append-only. Newest entries at the bottom. One line per status or scope change.
@@ -1049,3 +1060,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-11-10 | INF-14 | Package, CLI and widgets renamed with deprecated aliases | planned → in-review |
 | 2026-11-14 | NAV-01 | Shared SRP menu and brand on every page, network page rebranded, cloud Teams removed from navigation and labelled experimental; regression tests for deep links, keyboard and 320px (#54) | — → in-review |
 | 2026-11-14 | INF-15 | Claims/privacy audit, release checklist and regression tests (#55); production checks and #44 remain open | — → in-review |
+| 2026-11-14 | ONB-01 | Guided Explore & Play / Connect & Organize journeys, Save as contact / Add to group handoffs with confirmation and dedupe, sample-data guard and removal, browser journeys at desktop/375/320px (#56); user study pending | — → in-review |

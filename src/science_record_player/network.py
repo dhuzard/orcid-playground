@@ -94,11 +94,16 @@ def dispatch(store, importer, method: str, target: str, payload: dict | None = N
             raise ValueError("Expected a JSON object.")
         if path == "/api/demo":
             store.add_demo()
+        elif path == "/api/demo/remove":
+            store.remove_demo()
         elif path == "/api/import":
             value = payload.get("orcid")
             if not isinstance(value, str):
                 raise ValueError("An ORCID iD is required.")
-            store.import_biosketch(importer(value))
+            follow = payload.get("follow", True)
+            if type(follow) is not bool:
+                raise ValueError("follow must be true or false.")
+            store.import_biosketch(importer(value), follow=follow)
         elif path in ("/api/follow", "/api/save"):
             key = "following" if path == "/api/follow" else "saved"
             if not isinstance(payload.get("id"), str) or type(payload.get(key)) is not bool:

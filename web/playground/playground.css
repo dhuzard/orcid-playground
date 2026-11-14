@@ -203,3 +203,21 @@ h2{font-family:var(--display);font-weight:400;font-size:clamp(1.5rem,3vw,2.1rem)
   .hero h1{font-size:1.6rem}
   .hero .eyebrow-more,.path span{display:none}
 }
+/* Studio → My Network handoffs, "What can I do next?" and the Explore guide (#56). */
+#r-back:empty{display:none}
+.keep{border-top:1px solid var(--line);margin-top:4px;padding-top:12px}
+.keep h3,.next h3{font-size:1rem;margin:0}
+.keep .result-actions{margin:10px 0 6px}
+.concepts{margin-top:8px;font-size:.9rem}
+.concepts summary{cursor:pointer;font-weight:600;color:var(--brand)}
+.concepts dl{margin:8px 0 0;display:grid;grid-template-columns:max-content 1fr;gap:4px 14px}
+.concepts dt{font-weight:700}.concepts dd{margin:0}
+.next{margin-top:20px;padding:16px 18px;background:var(--soft);border-radius:12px}
+.next ul{margin:8px 0 0;padding-left:20px;display:grid;gap:6px}
+.linklike{background:none;border:0;padding:0;color:var(--brand);text-decoration:underline;text-underline-offset:3px;font:inherit;cursor:pointer}
+.guide{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:8px 0 32px}
+.guide h2{font-family:var(--display);font-weight:400;margin:6px 0 10px}
+.guide ol{margin:0;padding-left:22px;display:grid;gap:8px}
+.guide .small{padding:0}
+@media(max-width:600px){.concepts dl{grid-template-columns:1fr}.concepts dd{margin-bottom:6px}.guide{padding:16px}.next{padding:14px}}
+.keep p.small{padding:0}

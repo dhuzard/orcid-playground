@@ -80,12 +80,51 @@
         <div class="grade" id="r-grade" title="Record check score"></div>
       </header>
       <div class="result-actions">
-        <a id="to-network" class="button accent small" href="/network/">Add to my research network →</a>
+        <span id="r-back"></span>
         <a id="on-orcid" class="button quiet small" target="_blank" rel="noopener noreferrer">View on ORCID ↗</a>
+      </div>
+      <div class="keep" role="group" aria-labelledby="keep-title">
+        <h3 id="keep-title">Keep this researcher in My Network</h3>
+        <div class="result-actions">
+          <a id="to-contact" class="button accent small" href="/network/#contacts">Save as contact</a>
+          <a id="to-group" class="button quiet small" href="/network/#groups">Add to group</a>
+          <a id="to-network" class="button quiet small" href="/network/">Follow</a>
+        </div>
+        <p class="small muted">Each opens My Network with this ORCID iD filled in and asks before anything is read or saved. My Network is stored only in this browser.</p>
+        <details class="concepts">
+          <summary>Follow, Contact, Group, Team: what’s the difference?</summary>
+          <dl>
+            <dt>Follow</dt><dd>See the outputs a refresh newly finds in their public ORCID record, in your Feed. Nothing is sent to them.</dd>
+            <dt>Contact</dt><dd>Your own record of someone you know: context tags, date met, private notes and follow-ups. It stays in this browser and is never part of a team pack or a group link.</dd>
+            <dt>Group</dt><dd>A working group you curate: roster, local roles, project outputs and a team pack. Membership is your own note; the people listed are not notified and have not confirmed it.</dd>
+            <dt>Team</dt><dd>Membership each person confirms by signing in. That needs cloud Teams, which are not available on this site yet.</dd>
+          </dl>
+        </details>
       </div>
       <div class="tabs" role="tablist" aria-label="Outputs" id="tabs"></div>
       <div id="panel" class="panel" role="tabpanel"></div>
       <p class="provenance" id="r-provenance"></p>
+      <aside class="next" aria-labelledby="next-title">
+        <h3 id="next-title">What can I do next?</h3>
+        <ul>
+          <li><button type="button" class="linklike" data-goto="Trading card">Download the trading card</button> or the <button type="button" class="linklike" data-goto="Heatmap">publication heatmap</button> as SVG.</li>
+          <li><button type="button" class="linklike" data-goto="Record check">Check the record</button> and download the report with suggested fixes, to make in ORCID itself.</li>
+          <li><button type="button" class="linklike" data-goto="Citations &amp; data">Export citations</button> (BibTeX, RIS, CSL JSON) or the structured biosketch with its provenance.</li>
+          <li><a href="#keep-title" data-keep>Save this researcher as a contact or add them to a group</a>, then continue in <a href="/network/#contacts">My Network</a>, which has its own guide.</li>
+        </ul>
+      </aside>
+    </section>
+
+    <section class="guide" id="explore-guide" aria-labelledby="explore-guide-title">
+      <div class="eyebrow">FIRST STEPS</div>
+      <h2 id="explore-guide-title">Explore &amp; Play, step by step</h2>
+      <ol>
+        <li><b>Open a profile.</b> <button type="button" class="chip" data-sample-guide>Use the stored demo profile</button> (read from this site, no ORCID request), or enter any ORCID iD above.</li>
+        <li><b>Look around.</b> The trading card, publication heatmap, Wrapped and Record check are tabs of the result.</li>
+        <li><b>Export what you need.</b> Each tab has its own download: an SVG card, a record check report, citations.</li>
+        <li><b>Keep the researcher, if you like.</b> Save as contact, Add to group or Follow open My Network, and each asks first.</li>
+      </ol>
+      <p class="small muted">For the people you work with, <a href="/network/#contacts">Connect &amp; Organize in My Network</a> has its own step-by-step guide and an optional labelled sample.</p>
     </section>
 
     <section class="network-teaser">

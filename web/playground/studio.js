@@ -9,6 +9,8 @@ let outputs = null;
 let objectUrls = [];
 let session = null;
 let fromStoredCopy = false;
+// Set when My Network sent the visitor here (?from=contacts|people|groups), for the way back.
+let backTo = null;
 
 function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);
@@ -219,7 +221,12 @@ function render() {
   $('#r-headline').textContent = person.headline || '';
   $('#r-grade').replaceChildren(outputs.lint.grade, el('small', {}, `${outputs.lint.percentage}%`));
   $('#on-orcid').href = `https://orcid.org/${person.orcid}`;
-  $('#to-network').href = `/network/?import=${encodeURIComponent(person.orcid)}`;
+  // Studio → My Network (#56): each link carries the iD; My Network asks before reading or saving.
+  const id = encodeURIComponent(person.orcid);
+  $('#to-network').href = `/network/?import=${id}`;
+  $('#to-contact').href = `/network/#contacts?save=${id}`;
+  $('#to-group').href = `/network/#groups?add=${id}`;
+  $('#r-back').replaceChildren(backTo ? el('a', { class: 'button quiet small', href: `/network/#${backTo}` }, '← Back to My Network') : '');
   const source = fromStoredCopy ? `a stored copy of the public ORCID record (synchronized ${provenance?.generated_at})` : 'the public ORCID record, read just now';
   $('#r-provenance').textContent = `Generated in your browser from ${source}. Outputs re-express asserted fields only and do not verify identity, authorship or affiliations.`;
   if (session?.orcid === person.orcid) {
@@ -253,11 +260,21 @@ async function load(op, args, label) {
 
 function explore(orcid) {
   $('#orcid').value = orcid;
-  history.replaceState(null, '', `?orcid=${encodeURIComponent(orcid)}`);
+  // Keep the validated way back to My Network, so it survives a refresh of the result.
+  history.replaceState(null, '', `?orcid=${encodeURIComponent(orcid)}${backTo ? `&from=${backTo}` : ''}`);
   load('profile', { orcid }, `Reading the public ORCID record for ${orcid}…`);
 }
 
 $('#tabs').addEventListener('keydown', tabKeys);
+// "What can I do next?" opens the named output and puts keyboard focus on its tab.
+document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => {
+  showTab(b.dataset.goto);
+  const tab = [...$('#tabs').children].find(t => t.dataset.tab === b.dataset.goto);
+  tab?.focus();
+  tab?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}));
+document.querySelector('[data-keep]')?.addEventListener('click', event => { event.preventDefault(); $('#to-contact').focus(); });
+document.querySelector('[data-sample-guide]')?.addEventListener('click', () => $('[data-sample]').click());
 $('#lookup').addEventListener('submit', event => {
   event.preventDefault();
   const value = $('#orcid').value.trim();
@@ -310,10 +327,14 @@ function renderAccount(clientId) {
     renderAccount(clientId);
     say(error.message, { error: true });
   }
-  const requested = new URLSearchParams(location.search).get('orcid');
+  const params = new URLSearchParams(location.search);
+  const requested = params.get('orcid');
+  backTo = ['contacts', 'people', 'groups'].includes(params.get('from')) ? params.get('from') : null;
   if (requested) {
     $('#orcid').value = requested;
     $('#lookup button').focus();
-    say(`Press Explore to read the public ORCID record for ${requested}.`);
+    say(backTo
+      ? el('span', {}, `Press Explore to read the public ORCID record for ${requested}. `, el('a', { href: `/network/#${backTo}` }, '← Back to My Network'))
+      : `Press Explore to read the public ORCID record for ${requested}.`);
   }
 })();

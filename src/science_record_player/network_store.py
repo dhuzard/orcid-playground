@@ -91,6 +91,8 @@ WORKSPACE_FORMAT = "orcid-playground-workspace"
 GROUP_PACKAGE_FORMAT = "orcid-playground-team-group"
 _GROUP_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _DEMO_ID = re.compile(r"demo-[a-z0-9-]{1,60}")
+SAMPLE_GROUP_NAME = "Open Science Circle · Demo"
+SAMPLE_GROUP_DESCRIPTION = "A fictional working group for trying the pilot."
 
 
 def _fields(value: Any, field: str, required: tuple = (), optional: tuple = ()) -> dict:
@@ -290,7 +292,12 @@ class NetworkStore:
         result.setdefault("provenance", {}).setdefault("generated_at", None)
         return person_id, result
 
-    def import_biosketch(self, bio: dict) -> None:
+    def import_biosketch(self, bio: dict, *, follow: bool = True) -> None:
+        """Store or refresh one public record. ``follow`` applies to a new import only:
+        saving someone as a contact or a group member need not follow them, and a
+        refresh always keeps the existing follow preference."""
+        if not isinstance(follow, bool):
+            raise ValueError("follow must be true or false")
         person_id, bio = self._validate_bio(bio)
         with self._transaction(True) as data:
             previous = data["profiles"].get(person_id)
@@ -320,7 +327,7 @@ class NetworkStore:
                     event = data["events"].setdefault(key, {"observed_at": now, "people_ids": []})
                     if person_id not in event.setdefault("people_ids", []):
                         event["people_ids"].append(person_id)
-            data["profiles"][person_id] = {"bio": bio, "following": previous["following"] if previous else True,
+            data["profiles"][person_id] = {"bio": bio, "following": previous["following"] if previous else follow,
                                            "last_checked": now, "demo": False}
             self._prune(data)
 
@@ -657,8 +664,41 @@ class NetworkStore:
                     if person_id not in event.setdefault("people_ids", []):
                         event["people_ids"].append(person_id)
             data["groups"].setdefault("demo-open-science", {
-                "id": "demo-open-science", "name": "Open Science Circle · Demo", "description": "A fictional working group for trying the pilot.",
+                "id": "demo-open-science", "name": SAMPLE_GROUP_NAME, "description": SAMPLE_GROUP_DESCRIPTION,
                 "member_ids": [row[0] for row in examples], "created_at": now})
+
+    def remove_demo(self) -> dict:
+        """Take the labelled sample out again; real imports and their records stay.
+
+        Removes every demo profile (with its contact record, group places and outputs). A sample
+        group created by :meth:`add_demo` is deleted only while it holds nothing of the user's
+        own: once it has a real member, a request, or a name or description the user changed,
+        it is kept under a new id and its name without the "· Demo" suffix, with only the sample
+        people taken out, so roles, curated outputs, requests and the user's text survive.
+        Returns what was removed and kept, for the confirmation.
+        """
+        with self._transaction(True) as data:
+            people = [key for key, profile in data["profiles"].items() if profile["demo"]]
+            removed = set(people)
+            for key in people:
+                del data["profiles"][key]
+            deleted, kept = 0, []
+            for key in [key for key in data["groups"] if _DEMO_ID.fullmatch(key)]:
+                group = data["groups"].pop(key)
+                group["member_ids"] = [member for member in group["member_ids"] if member not in removed]
+                edited = group.get("name") != SAMPLE_GROUP_NAME or group.get("description") != SAMPLE_GROUP_DESCRIPTION
+                if not group["member_ids"] and not group.get("requests") and not edited:
+                    deleted += 1
+                    continue
+                new_id = str(uuid.uuid4())
+                name = re.sub(r"\s*·\s*Demo$", "", group["name"]).strip() or "Working group"
+                description = "" if group.get("description") == SAMPLE_GROUP_DESCRIPTION else group.get("description", "")
+                data["groups"][new_id] = {**group, "id": new_id, "name": name, "description": description}
+                kept.append({"id": new_id, "from": group["name"], "name": name})
+            for group in data["groups"].values():
+                group["member_ids"] = [member for member in group["member_ids"] if member not in removed]
+            self._prune(data)
+            return {"people": len(people), "groups": deleted, "kept_groups": kept}
 
     # ---- Backup, restore and team packages -------------------------------
     # Files come back from outside this workspace, so they are validated as

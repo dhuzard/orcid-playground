@@ -10,8 +10,11 @@ validation and bulk-import contract is [group-workflow-api.md](group-workflow-ap
 
 - `GET /api/state` returns the state below.
 - `POST /api/demo` adds sample profiles/group idempotently (does not overwrite real data).
-- `POST /api/import` `{orcid}` imports or refreshes a public record. First import
-  follows it; subsequent refreshes preserve the follow preference.
+- `POST /api/demo/remove` removes every sample (`demo`) profile with its contact record and
+  outputs, and the sample groups; your own imports, contacts and groups stay.
+- `POST /api/import` `{orcid, follow?}` imports or refreshes a public record. First import
+  follows it unless `follow` is `false` (Save as contact / Add to group); subsequent refreshes
+  preserve the follow preference.
 - `POST /api/follow` `{id, following: boolean}`.
 - `POST /api/save` `{id, saved: boolean}` (work id).
 - `POST /api/people/remove` `{id}` removes an imported person from this workspace only (nothing
