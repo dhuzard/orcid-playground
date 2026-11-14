@@ -14,7 +14,7 @@ No. The public API exposes assertions and visibility settings; the application c
 
 ## Does the group graph prove who collaborated?
 
-No. A link means two records list the same DOI. A real collaboration may be absent if metadata are incomplete, and a shared DOI does not prove project membership or contribution roles.
+No. A link means both public records list the same DOI: a co-assertion of one output, not independent collaboration evidence. A real collaboration may be absent if metadata are incomplete, and a shared DOI does not prove project membership or contribution roles.
 
 ## Is a funder-format biosketch ready to submit?
 
@@ -30,7 +30,15 @@ In the hosted Research network, tags, notes, and follow-ups are browser-local. T
 
 ## Is there a private cloud team workspace?
 
-The codebase contains invite-based Teams, but cloud activation is not yet documented as complete for the hosted service. A local working group and a shareable public link **do not** imply accepted membership. Follow the [availability and trust notes](trust.md).
+Not on the public site. The codebase contains invite-based cloud Teams, but they are experimental and **not available**: no production test or security review has been recorded. Follow the [availability and trust notes](trust.md).
+
+## What is the difference between a Group, a Public Group View link and a Team?
+
+- A **local curated Group** lives in My Network, in your browser. Its roster, roles and project outputs are your own annotations; the people listed are not asked or notified.
+- A **Public Group View link** contains only a group name and public ORCID iDs. Anyone you send it to can open it.
+- A **private cloud Team** would be an invite-only shared workspace. It is not available.
+
+None of these implies that the people listed accepted membership.
 
 ## Is it free/open source?
 
@@ -38,4 +46,4 @@ The application source is [MIT licensed](https://github.com/dhuzard/science-reco
 
 ## How can I suggest improvements without writing software?
 
-Try the [five-minute test](feedback.md) and open a GitHub feedback issue describing the scientific task, expected result and what should change.
+Try the [five-minute test](feedback.md), then use the [in-app feedback form](https://science-record-player.web.app/feedback/), which needs no GitHub account. Describe the scientific task, the expected result and what should change. GitHub issues remain available for developers.

@@ -16,7 +16,9 @@ The important constraint: a public ORCID record is **not independently verified*
 
 I'm looking for researchers, lab coordinators and data stewards to spend five minutes with it. What would be useful? What is misleading? Which feature would you want next?
 
-**Suggest a feature without GitHub:** https://science-record-player.web.app/feedback/\n\n**Developer issues:** https://github.com/dhuzard/science-record-player/issues/new/choose
+**Suggest a feature without GitHub:** https://science-record-player.web.app/feedback/
+
+**Developer issues:** https://github.com/dhuzard/science-record-player/issues/new/choose
 
 Built in the open. This is an independent open-source project and is not affiliated with, sponsored by, or endorsed by ORCID. ORCID® is a registered trademark of ORCID, Inc.
 

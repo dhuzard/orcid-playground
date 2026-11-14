@@ -15,8 +15,8 @@ Try this with your own public record or the clearly labelled sample data:
 | 1. Explore a profile | Find one publication or affiliation | Does its origin make sense? |
 | 2. Run Record check | Identify one actionable improvement | Is the suggested fix valid for your record? |
 | 3. Export something | Download a BibTeX, RIS, JSON-LD or Markdown output | Would you reuse it? What is missing? |
-| 4. Try the research network | Add or inspect one person/contact and group | What would make this useful in your lab? |
-| 5. Open Group view | Inspect DOI-based links or an output summary | Do you understand what the relationship does **not** prove? |
+| 4. Try My Network | Add or inspect one person/contact and group | What would make this useful in your lab? |
+| 5. Open Public Group View | Inspect DOI-based links or an output summary | Do you understand what the relationship does **not** prove? |
 
 You can stop after any task. Please do not share private records, credentials, private contact notes or other researchers' sensitive data in a public issue.
 

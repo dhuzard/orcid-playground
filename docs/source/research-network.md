@@ -1,6 +1,6 @@
-# Research network — people, outputs and contacts
+# My Network — people, contacts and groups
 
-Open the [research network](https://science-record-player.web.app/network/). You can use labelled sample data or import public ORCID records.
+My Network is the **Connect & Organize** path. Open [My Network](https://science-record-player.web.app/network/#contacts) (labelled **My Network** in the site menu; earlier docs call it the research network). You can [load labelled sample data](https://science-record-player.web.app/network/?sample=1#groups), which is added only after you confirm, or import public ORCID records.
 
 The hosted version runs the research-network engine in the browser. A separate, optional localhost Python/SQLite pilot also exists. They are **not** a public shared database.
 
@@ -22,7 +22,7 @@ These are **your annotations**: the people named do not receive invitations, not
 
 Curate a roster; record locally entered roles, expertise and contributions; choose which suggested works belong to a project; assign and resolve internal requests. Download a team pack scoped to chosen researchers, project outputs and dates. A project selection is an editorial decision, **not verified project attribution**.
 
-See [Group view and collaboration evidence](groups.md) for public, shareable visualization of public records.
+See [Public Group View](groups.md) for a shareable visualization of public records. A local Group is not a Public Group View link and not a private cloud Team.
 
 ## Saved and personal backup
 
@@ -32,8 +32,8 @@ Save selected works and download a versioned **workspace backup**. Restoring a b
 
 ## How much is actually private?
 
-The hosted research-network workspace uses browser-local storage. Public ORCID record imports contact the ORCID public API. The optional private Team workspaces/personal cloud sync use Google services when configured and activated; **do not confuse them with the default browser-local workflow**. See [Trust and privacy](trust.md).
+The hosted My Network workspace uses browser-local storage in this browser profile. Public ORCID record imports contact the ORCID public API. Private cloud Teams and personal cloud sync are experimental and **not available** on the public site; **do not confuse them with the default browser-local workflow**. See [Trust and privacy](trust.md).
 
 ## Suggested five-minute test
 
-Use the [sample research network](https://science-record-player.web.app/network/?sample=1#groups). Follow someone, add a contact note, curate a group output, download a team pack, and tell us which task was confusing using the [feedback form](feedback.md).
+Follow the [Connect & Organize steps in Get started](getting-started.md#connect--organize-people-and-groups), then tell us which task was confusing using the [feedback form](feedback.md).

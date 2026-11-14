@@ -70,7 +70,7 @@ Post copy (draft): *You met twelve people at the conference. A month later, who 
 
 **Full demo.** Your ORCID record already holds a decade of your work. What if you could reuse it, on your terms?
 Publish or Play. Science Record Player turns the public record into a biosketch, NIH/ERC/Horizon templates, citations, a quality check and a few playful extras.
-The researcher controls the narrative; ORCID supplies the assertions; every field keeps its provenance. Open source, works offline.
+The researcher controls the narrative; ORCID supplies the assertions; every field keeps its provenance. Open source; runs in your browser, and the stored sample reopens offline after a first visit.
 science-record-player.web.app  #ORCID #OpenScience #FAIR #ResearchData
 
 **Clip 1.** How complete is your ORCID record? The Studio gives a score and tells you exactly what to fix.

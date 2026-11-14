@@ -954,6 +954,14 @@ imported person, so removing someone's tags did not remove them from the list.
 - [ ] #44 outcome for the rebranded app recorded.
 - [ ] Release A and B checklists signed by the owner on the deployed site.
 
+## DOC-01 — README and user docs around the two SRP experiences (#57)
+
+- **Priority** P1 · **Status** in-progress · **Owner** session
+- **Scope** README first screen: homepage headline, Publish or Play tagline, equal Explore & Play / Connect & Organize pathways with live CTAs, exact ORCID disclaimer, one Quick Start per path, availability matrix (live web / browser-local / local Python / experimental cloud / planned) distinguishing local Groups, Public Group View links and private cloud Teams. Docs `index`, `getting-started`, `research-network`, `faq`, `trust`, `feedback`, video storyboard and demo README aligned; PR #31 described as merged; no unscoped "works offline" claim.
+- **Evidence** `tests/test_readme.py` (README CTAs resolve to routes in the built site, canonical host/repo only, headline matches the homepage, no published-video link); Sphinx `-n -W`; `tests/test_claims.py`, `tests/test_navigation.py`.
+- [x] Explore → Contact → Group tutorials (`docs/source/tutorials.md`) written against #56 at PR #66 head `9902c71`; must merge after #66.
+- [ ] Human check: a new user finds the right guide in two clicks; tutorials reproduced on the live site.
+
 ## Change log
 
 Append-only. Newest entries at the bottom. One line per status or scope change.
@@ -1049,3 +1057,4 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-11-10 | INF-14 | Package, CLI and widgets renamed with deprecated aliases | planned → in-review |
 | 2026-11-14 | NAV-01 | Shared SRP menu and brand on every page, network page rebranded, cloud Teams removed from navigation and labelled experimental; regression tests for deep links, keyboard and 320px (#54) | — → in-review |
 | 2026-11-14 | INF-15 | Claims/privacy audit, release checklist and regression tests (#55); production checks and #44 remain open | — → in-review |
+| 2026-11-14 | DOC-01 | README and user docs reorganized around the two experiences with an availability matrix and README route test (#57); #56 tutorials and human checks open | — → in-progress |
