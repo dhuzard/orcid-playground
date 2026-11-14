@@ -15,7 +15,9 @@ Scientific rules and the current findings are in [`claims-privacy-audit.md`](cla
 |---|---|
 | #44 ORCID brand review of the rebranded app | **Open — not approved.** ORCID declined the old branding (9 Nov 2026); no written review of Science Record Player yet. |
 | #54 Teams nav entry hidden/gated | Merged into `main` (PR #63, `a5b1d58`); **not verified on the live deploy** |
-| #53 homepage two-track hero | Open (sibling PR) |
+| #53 homepage two-track hero | Merged into `main` (PR #62, `e058cb2`); repository claim tests (`tests/test_claims.py`, `tests/test_homepage.py`) pass on that commit; **not verified on the live deploy** |
+| #55 claims audit, this checklist and `tests/test_claims.py` | Merged into `main` (PR #61, `d45e5fa`) |
+| Latest `main` CI and hosting deploy workflow | Both green on `e058cb2` (CI run 43578095046, deploy run 43578095042). A green deploy workflow is **not** a live-site check: nobody has yet compared the deployed pages with this checklist |
 | #22 cloud Teams production verification + security review | Not done |
 | Release A sign-off | **Not signed** |
 | Release B sign-off | **Not signed** |
@@ -37,7 +39,8 @@ Scientific rules and the current findings are in [`claims-privacy-audit.md`](cla
 - [ ] Group view on the live site: graph tab is “Shared-DOI graph”; selecting a line shows “Both public records list…” and the DOI(s); the table has a “Supporting DOI(s)” column.
 - [ ] Feed shows “Newly observed” and “First seen by your refresh” next to the publication date.
 - [ ] Funder biosketch tab and downloaded templates show the draft disclaimer.
-- [ ] Homepage (after #53) and navigation (after #54) contain no “proof”, “verified researcher/team”, “all private” or “ORCID-approved” wording.
+- [ ] Homepage two-track hero (#53, merged in PR #62) and navigation (#54, merged in PR #63) contain no “proof”, “verified researcher/team”, “all private” or “ORCID-approved” wording.
+- [ ] Homepage: both paths (Explore & Play, Connect & Organize) are visible on first screen at desktop and 320/375px; “Open My Network →” opens `/network/#contacts` with no import, and “Try it with sample data” asks before adding the labelled Demo workspace; `?orcid=` only pre-fills the form and sends no ORCID request until Explore is pressed.
 - [ ] Every page shows the exact disclaimer and the ownership line; footers use ®.
 
 ### Availability (blocking)

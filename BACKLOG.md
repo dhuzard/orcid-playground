@@ -939,7 +939,8 @@ imported person, so removing someone's tags did not remove them from the list.
 - **Menu** Explore (`/`) · My Network (`/network/`, sections Feed / People / Contacts / Groups / Saved) · Public Group View (`/group/`) · How it works (`/docs/`) · Feedback (`/feedback/`), with the same brand, ownership line, selected-route cue (`aria-current="page"`), focus ring and 320px layout on Studio, Network, Group, Feedback, Teams and the docs announcement bar. The network page's separate "Research in good company / THE RESEARCH COMMONS / LOCAL PILOT" identity is replaced by the SRP brand.
 - **Teams** Private cloud Teams have no menu entry and are no longer linked from My Network; `/team/` stays reachable directly and says it is experimental and not available. Storage keys, backup formats and import behaviour are unchanged.
 - **Evidence** `tests/test_navigation.py`; `web/navigation.browser.test.mjs` (Chromium: menu and brand on every page, no dead links, keyboard order and focus ring, 320px, `#feed`/`#people`/`#contacts`/`#groups`/`#saved`, `?sample=1#groups`, `/group/`, `/group/#v1.…`, `/group/?packages=1`), run by the CI `browser` job.
-- **Open** a small user test of the menu labels; merge and check on the live site.
+- **Merged** PR #63 (`a5b1d58`); CI green.
+- **Open** a small user test of the menu labels; check on the live site.
 
 ## INF-15 — Pre-promotion audit: scientific claims, privacy boundaries, brand readiness
 
@@ -950,7 +951,7 @@ imported person, so removing someone's tags did not remove them from the list.
 - [x] Shared-DOI wording with supporting DOIs in the Group view; funder drafts and feed dates scoped.
 - [x] Regression assertions (`tests/test_claims.py`, `web/playground/group-link.test.mjs`).
 - [x] Teams nav entry removed and `/team/` labelled experimental (#54, PR #63 merged; audit updated). Live deploy not verified.
-- [ ] Homepage hero checked (#53).
+- [x] Homepage hero checked in the repository (#53, PR #62 merged at `e058cb2`; `tests/test_claims.py` and `tests/test_homepage.py` pass). Live deploy not verified.
 - [ ] #44 outcome for the rebranded app recorded.
 - [ ] Release A and B checklists signed by the owner on the deployed site.
 
@@ -1049,3 +1050,5 @@ Append-only. Newest entries at the bottom. One line per status or scope change.
 | 2026-11-10 | INF-14 | Package, CLI and widgets renamed with deprecated aliases | planned → in-review |
 | 2026-11-14 | NAV-01 | Shared SRP menu and brand on every page, network page rebranded, cloud Teams removed from navigation and labelled experimental; regression tests for deep links, keyboard and 320px (#54) | — → in-review |
 | 2026-11-14 | INF-15 | Claims/privacy audit, release checklist and regression tests (#55); production checks and #44 remain open | — → in-review |
+| 2026-11-14 | NAV-01 | PR #63 merged (`a5b1d58`); label user test and live-site check remain open | in-review (merged, manual checks open) |
+| 2026-11-14 | INF-15 | PR #61 merged (`d45e5fa`); #53 hero merged (PR #62, `e058cb2`) and recorded in audit/checklist; owner sign-off and #44 remain open | in-review (merged, sign-off open) |
